@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gama Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['SF Pro Display', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+            },
+            colors: {
+              ios: {
+                bg: '#F5F5F7', // Apple Light Gray Background
+                card: '#FFFFFF', // Pure White Cards
+                cardHover: '#FAFAFA',
+                text: '#1D1D1F', // Apple Dark Text
+                subtext: '#86868B', // Apple Subtext
+                primary: '#04a7bd', // Requested Primary
+                secondary: '#149890', // Requested Secondary
+                // Mapping old keys to new palette for compatibility
+                blue: '#04a7bd', 
+                green: '#34C759',
+                red: '#FF3B30',
+                divider: 'rgba(0, 0, 0, 0.05)',
+              }
+            },
+            borderRadius: {
+              'ios': '24px',
+              'ios-sm': '16px',
+              'ios-btn': '12px',
+            },
+            boxShadow: {
+              'glass': '0 4px 24px 0 rgba(0, 0, 0, 0.04)',
+              'float': '0 20px 40px -10px rgba(4, 167, 189, 0.15)',
+            },
+            backdropBlur: {
+              'xs': '2px',
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+      body {
+        background-color: #F5F5F7;
+        color: #1D1D1F;
+        -webkit-font-smoothing: antialiased;
+        /* Subtle gradient fitting the gray/white theme */
+        background-image: linear-gradient(180deg, #FFFFFF 0%, #F5F5F7 100%);
+        background-attachment: fixed;
+      }
+      /* Hide scrollbar for cleaner look, but allow functionality */
+      ::-webkit-scrollbar {
+        width: 0px;
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: rgba(0,0,0,0.1);
+        border-radius: 10px;
+      }
+      .glass-panel {
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+      }
+      .glass-sidebar {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(30px);
+        -webkit-backdrop-filter: blur(30px);
+        border-right: 1px solid rgba(0, 0, 0, 0.05);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.84.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

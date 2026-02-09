@@ -1,0 +1,7 @@
+{
+  "name": "Gama Center System - Chamada",
+  "description": "Health and Safety management system with macOS-inspired design and Gemini AI integration.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
