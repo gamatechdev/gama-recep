@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { supabase } from '../supabaseClient';
-import { AccessRole } from '../types';
+import { supabase } from '../services/supabaseClient'; // Cliente Supabase canônico em services/
+import { AccessRole } from '../types'; // Tipos globais na raiz do projeto
 
 interface AuthProps {
   onSuccess: () => void;
@@ -43,15 +43,15 @@ const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         });
 
         if (authError) throw authError;
-        
+
         if (data.user) {
-           const hasAccess = await checkAccess(data.user.id);
-           if (hasAccess) {
-             onSuccess();
-           } else {
-             await supabase.auth.signOut();
-             setError("Acesso negado. Permissão insuficiente.");
-           }
+          const hasAccess = await checkAccess(data.user.id);
+          if (hasAccess) {
+            onSuccess();
+          } else {
+            await supabase.auth.signOut();
+            setError("Acesso negado. Permissão insuficiente.");
+          }
         }
 
       } else {
@@ -61,9 +61,9 @@ const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         });
 
         if (signUpError) throw signUpError;
-        
+
         if (data.user) {
-             setError("Cadastro realizado! Aguarde aprovação.");
+          setError("Cadastro realizado! Aguarde aprovação.");
         }
       }
     } catch (err: any) {
@@ -82,11 +82,11 @@ const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
       <div className="w-full max-w-[400px] bg-white/70 backdrop-blur-3xl rounded-[32px] p-10 shadow-float border border-white/60 relative z-10">
         <div className="text-center mb-10">
           <div className="w-20 h-20 bg-gradient-to-tr from-ios-primary to-ios-secondary rounded-[24px] mx-auto flex items-center justify-center shadow-lg shadow-ios-primary/30 mb-6 transform rotate-3">
-             <img 
-                src="https://wofipjazcxwxzzxjsflh.supabase.co/storage/v1/object/public/Media/Image/image-removebg-preview%20(2).png" 
-                alt="Gama Center Logo" 
-                className="w-14 h-14 object-contain brightness-0 invert" 
-             />
+            <img
+              src="https://wofipjazcxwxzzxjsflh.supabase.co/storage/v1/object/public/Media/Image/image-removebg-preview%20(2).png"
+              alt="Gama Center Logo"
+              className="w-14 h-14 object-contain brightness-0 invert"
+            />
           </div>
           <h1 className="text-3xl font-bold text-ios-text tracking-tight">Gama Center</h1>
           <p className="text-ios-subtext text-sm font-medium mt-2">Health OS 26</p>

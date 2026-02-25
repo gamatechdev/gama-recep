@@ -1,8 +1,40 @@
 
+// Interface que representa um contato/chat do WhatsApp
+export interface ChatTag {
+  chatname: string;         // Nome do contato/chat
+  phone: string;            // Número de telefone do contato
+  tag: number;              // Tag de classificação/setor do chat
+  senderphoto?: string;     // Foto do remetente (opcional)
+  last_message?: string;    // Prévia da última mensagem enviada (opcional)
+  updated_at?: string;      // Timestamp da última atualização em ISO string (opcional)
+  notificado?: boolean;     // Indica se há mensagem não lida (opcional)
+  matched_message?: string; // Mensagem que correspondeu à busca por conteúdo (opcional)
+  matched_time?: string;    // Timestamp da mensagem que correspondeu à busca (opcional)
+}
+
+// Interface que representa uma mensagem trocada em um chat
+export interface Message {
+  id: string;                  // ID único da mensagem (pode ser temporário para otimismo)
+  chatname: string;            // Chat ao qual a mensagem pertence
+  text_message: string;        // Conteúdo textual da mensagem
+  status: string;              // Status da mensagem (ex: SENT, READ)
+  criado_em: string;           // Timestamp de criação em ISO string
+  enviado_por?: string;        // user_id de quem enviou (opcional)
+  is_img?: boolean;            // Se a mensagem contém imagem
+  img_path?: string;           // Caminho da imagem no storage (opcional)
+  audio_url?: string;          // URL do áudio gravado (opcional)
+  video_path?: string;         // URL do vídeo enviado (opcional)
+  pdf_path?: string;           // URL do PDF enviado (opcional)
+  sender_lid?: string;         // Identificador auxiliar do remetente
+  message_id?: string;         // ID da mensagem no sistema de chat externo
+  raw_payload?: any;           // Payload bruto da mensagem (ex: reply reference)
+}
+
+// Interface que representa um usuário autenticado da aplicação
 export interface User {
   id: number;
   username: string;
-  user_id: string; // references auth.users
+  user_id: string; // Referência ao usuário do auth.users do Supabase
   role: number | null;
   sector: number | null;
   email: string;

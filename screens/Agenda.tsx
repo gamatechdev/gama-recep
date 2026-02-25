@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { supabase } from '../supabaseClient';
-import { Agendamento } from '../types';
+import { supabase } from '../services/supabaseClient'; // Cliente Supabase canônico em services/
+import { Agendamento } from '../types'; // Tipos globais na raiz do projeto
 
 // Copied from AppointmentForm to ensure consistency for export columns
 const EXAMES_LIST_EXPORT = [
@@ -368,10 +368,10 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                     if (Array.isArray(rawSnapshot)) {
                         // Caso correto: já é um array, usa diretamente
                         examesParaInserir = rawSnapshot;
-                    } else if (typeof rawSnapshot === 'string' && rawSnapshot.trim().startsWith('[')) {
-                        // Caso problemático: veio como string JSON, faz o parse
+                    } else if (typeof (rawSnapshot as unknown) === 'string' && (rawSnapshot as unknown as string).trim().startsWith('[')) {
+                        // Caso problemático: Supabase retornou como string JSON, faz o parse
                         try {
-                            const parsed = JSON.parse(rawSnapshot);
+                            const parsed = JSON.parse(rawSnapshot as unknown as string);
                             // Confirma que o resultado do parse é de fato um array
                             examesParaInserir = Array.isArray(parsed) ? parsed : [];
                         } catch (_e) {

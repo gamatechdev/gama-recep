@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '../supabaseClient';
-import { Colaborador, Unidade, Agendamento } from '../types';
+import { supabase } from '../../services/supabaseClient'; // Cliente Supabase canônico em services/
+import { Colaborador, Unidade, Agendamento } from '../../types'; // Tipos globais na raiz do projeto
 
 const EXAMES_LIST = [
   { "idx": 0, "id": 447, "nome": "Avaliação Clínica" },

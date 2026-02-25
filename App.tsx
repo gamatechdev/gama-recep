@@ -1,16 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from './supabaseClient';
-import Auth from './components/Auth';
-import Layout from './components/Layout';
-import Dashboard from './components/Dashboard';
-import Agenda from './components/Agenda';
-import AppointmentForm from './components/AppointmentForm';
-import CallScreen from './components/CallScreen';
-import ServiceScreen from './components/ServiceScreen';
-import StatsScreen from './components/StatsScreen';
-import AsoDocument from './components/AsoDocument';
-import { Agendamento } from './types';
+import { supabase } from './services/supabaseClient'; // Importando o client Supabase canônico
+import Auth from './screens/Auth'; // Tela de autenticação
+import Layout from './components/layout/Layout'; // Layout principal da aplicação
+import Dashboard from './screens/Dashboard'; // Tela de dashboard
+import Agenda from './screens/Agenda'; // Tela de agenda
+import AppointmentForm from './components/agenda/AppointmentForm'; // Formulário de agendamento
+import CallScreen from './screens/CallScreen'; // Tela de chamada
+import ServiceScreen from './screens/ServiceScreen'; // Tela de atendimento (TV)
+import StatsScreen from './screens/StatsScreen'; // Tela de estatísticas
+import AsoDocument from './screens/AsoDocument'; // Tela de geração de ASO
+import { Agendamento } from './types'; // Tipos globais da aplicação
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);

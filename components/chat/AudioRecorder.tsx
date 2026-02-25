@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { transcribeAudio } from '../services/geminiService';
+import { transcribeAudio } from '../../services/geminiService'; // Serviço Gemini em services/
 
 interface AudioRecorderProps {
   onTranscriptionComplete: (text: string) => void;
@@ -27,16 +27,16 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscriptionComplete }
       mediaRecorder.onstop = async () => {
         setIsProcessing(true);
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        
+
         try {
-            const text = await transcribeAudio(audioBlob);
-            onTranscriptionComplete(text);
+          const text = await transcribeAudio(audioBlob);
+          onTranscriptionComplete(text);
         } catch (error) {
-            alert("Erro ao transcrever áudio.");
+          alert("Erro ao transcrever áudio.");
         } finally {
-            setIsProcessing(false);
-            // Stop all tracks to release microphone
-            stream.getTracks().forEach(track => track.stop());
+          setIsProcessing(false);
+          // Stop all tracks to release microphone
+          stream.getTracks().forEach(track => track.stop());
         }
       };
 
