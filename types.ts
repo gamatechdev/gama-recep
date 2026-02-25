@@ -8,6 +8,7 @@ export interface ChatTag {
   last_message?: string;    // Prévia da última mensagem enviada (opcional)
   updated_at?: string;      // Timestamp da última atualização em ISO string (opcional)
   notificado?: boolean;     // Indica se há mensagem não lida (opcional)
+  visualizado_por?: string; // ID do usuário que visualizou
   matched_message?: string; // Mensagem que correspondeu à busca por conteúdo (opcional)
   matched_time?: string;    // Timestamp da mensagem que correspondeu à busca (opcional)
 }
