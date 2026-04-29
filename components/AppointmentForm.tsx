@@ -210,6 +210,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   // New Appointment Fields
   const [obsAgendamento, setObsAgendamento] = useState('');
   const [prioridade, setPrioridade] = useState(false);
+  const [asoQtdCobrar, setAsoQtdCobrar] = useState(0);
+  const [racQtdCobrar, setRacQtdCobrar] = useState(0);
 
   // New Company (Unit) Modal State
   const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);
@@ -307,6 +309,14 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
 
       if (initialAppointment.prioridade) {
         setPrioridade(initialAppointment.prioridade);
+      }
+
+      if (initialAppointment.aso_qtd_cobrar) {
+        setAsoQtdCobrar(initialAppointment.aso_qtd_cobrar);
+      }
+
+      if (initialAppointment.rac_qtd_cobrar) {
+        setRacQtdCobrar(initialAppointment.rac_qtd_cobrar);
       }
 
       if (initialAppointment.valor && initialAppointment.valor > 0) {
@@ -474,6 +484,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     setColabSearchTerm(''); setUnitSearchTerm('');
     setAppointmentData(prev => ({ ...prev, unidade: '' }));
     setObsAgendamento(''); setPrioridade(false);
+    setAsoQtdCobrar(0); setRacQtdCobrar(0);
     setIsAvulso(false); setValorAvulso(''); setMetodoPagamento('Pix'); setOutroMetodoPagamento('');
     setSavedContext(null);
   };
@@ -784,6 +795,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           ficha_url: generatedUrl || initialAppointment.ficha_url,
           obs_agendamento: obsAgendamento || null,
           prioridade: prioridade,
+          aso_qtd_cobrar: asoQtdCobrar,
+          rac_qtd_cobrar: racQtdCobrar,
           valor: finalValor || initialAppointment.valor || 0,
           metodo_pagamento: finalMetodo !== 'medicao' ? finalMetodo : (initialAppointment.metodo_pagamento || 'medicao'),
           observacoes: obsClinica || null,
@@ -805,6 +818,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           ficha_url: generatedUrl,
           obs_agendamento: obsAgendamento || null,
           prioridade: prioridade,
+          aso_qtd_cobrar: asoQtdCobrar,
+          rac_qtd_cobrar: racQtdCobrar,
           valor: finalValor,
           metodo_pagamento: finalMetodo,
           observacoes: obsClinica || null,
@@ -1028,6 +1043,17 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
             <div className="flex flex-col md:flex-row gap-6">
               <div className="w-full"><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Obs. Agendamento</label><textarea rows={2} value={obsAgendamento} onChange={(e) => setObsAgendamento(e.target.value)} className="w-full p-4 rounded-xl bg-yellow-50 border-transparent focus:bg-white outline-none resize-none" /></div>
               <div className="md:w-64"><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Prioridade</label><div onClick={() => setPrioridade(!prioridade)} className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer ${prioridade ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-transparent'}`}><div className={`w-6 h-6 rounded-md border flex items-center justify-center ${prioridade ? 'bg-red-500 border-red-500' : 'bg-white border-gray-300'}`}>{prioridade && <span className="text-white font-bold">✓</span>}</div><span className="text-sm font-bold text-gray-500">Marcar Prioridade</span></div></div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Qtd ASO a Cobrar</label>
+                  <input type="number" min="0" value={asoQtdCobrar} onChange={e => setAsoQtdCobrar(parseInt(e.target.value) || 0)} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Qtd RAC a Cobrar</label>
+                  <input type="number" min="0" value={racQtdCobrar} onChange={e => setRacQtdCobrar(parseInt(e.target.value) || 0)} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" />
+                </div>
             </div>
           </div>
 
