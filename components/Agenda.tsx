@@ -466,18 +466,6 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
         }
     };
 
-    const handleUpdateBilling = async (id: number, field: 'aso_qtd_cobrar' | 'rac_qtd_cobrar', value: number) => {
-        const originalItem = appointments.find(a => a.id === id);
-        setAppointments(prev => prev.map(a => a.id === id ? { ...a, [field]: value } : a));
-        try {
-            const { error } = await supabase.from('agendamentos').update({ [field]: value }).eq('id', id);
-            if (error) throw error;
-        } catch (error: any) {
-            if (originalItem) setAppointments(prev => prev.map(a => a.id === id ? { ...a, [field]: originalItem[field] } : a));
-            alert(`Erro ao atualizar cobrança: ${error.message}`);
-        }
-    };
-
     const openFicha = (url: string | null) => {
         if (url) window.open(url, '_blank');
         else alert("Ficha não disponível.");
@@ -812,8 +800,6 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
             table += `<th ${styleGreen}>Valor</th>`;
             table += `<th ${styleGreen}>Data Nascimento</th>`;
             table += `<th ${styleGreen}>CPF</th>`;
-            table += `<th ${styleGreen}>ASO a Cobrar</th>`;
-            table += `<th ${styleGreen}>RAC a Cobrar</th>`;
             table += `<th ${styleGreen}>Data de liberação</th>`;
             table += `<th ${styleGreen}>Observações</th>`; // Adicionada coluna Observações
 
@@ -854,8 +840,6 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                 table += `<td>${dtNasc}</td>`;
                 // Força formato texto para CPF para não perder zeros a esquerda
                 table += `<td style="mso-number-format:'\\@'">${cpf}</td>`;
-                table += `<td style="text-align:center;">${item.aso_qtd_cobrar || 0}</td>`;
-                table += `<td style="text-align:center;">${item.rac_qtd_cobrar || 0}</td>`;
                 table += `<td>${dtLib}</td>`;
                 table += `<td>${observacoes}</td>`; // Adicionada coluna Observações
 
@@ -1141,28 +1125,6 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                                     <button onClick={(e) => { e.stopPropagation(); toggleAttendance(apt.id, apt.compareceu); }} className={`w-8 h-8 rounded-full shadow-inner transition-all duration-500 relative flex items-center justify-center ${apt.compareceu ? 'bg-green-500 shadow-green-200' : 'bg-red-500 shadow-red-200'} hover:scale-105 active:scale-95`} title={apt.compareceu ? "Presente" : "Ausente"}>
                                         {apt.compareceu ? (<svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>) : (<div className="w-2 h-2 bg-white rounded-full opacity-50"></div>)}
                                     </button>
-                                </div>
-
-                                <div className="flex flex-col items-center gap-1.5" onClick={e => e.stopPropagation()}>
-                                    <span className="text-[10px] uppercase font-bold text-gray-300 tracking-wider">Cobrar ASO</span>
-                                    <input 
-                                        type="number" 
-                                        min="0"
-                                        value={apt.aso_qtd_cobrar ?? 0} 
-                                        onChange={(e) => handleUpdateBilling(apt.id, 'aso_qtd_cobrar', parseInt(e.target.value) || 0)}
-                                        className="w-12 h-8 text-center text-xs font-bold rounded-lg border border-gray-200 bg-white outline-none focus:border-ios-primary transition-all shadow-sm"
-                                    />
-                                </div>
-
-                                <div className="flex flex-col items-center gap-1.5" onClick={e => e.stopPropagation()}>
-                                    <span className="text-[10px] uppercase font-bold text-gray-300 tracking-wider">Cobrar RAC</span>
-                                    <input 
-                                        type="number" 
-                                        min="0"
-                                        value={apt.rac_qtd_cobrar ?? 0} 
-                                        onChange={(e) => handleUpdateBilling(apt.id, 'rac_qtd_cobrar', parseInt(e.target.value) || 0)}
-                                        className="w-12 h-8 text-center text-xs font-bold rounded-lg border border-gray-200 bg-white outline-none focus:border-ios-primary transition-all shadow-sm"
-                                    />
                                 </div>
                                 <div className="hidden md:block h-10 w-px bg-gray-100"></div>
                                 <div className="flex flex-col items-center gap-1.5" onClick={e => e.stopPropagation()}>
