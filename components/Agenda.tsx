@@ -822,18 +822,23 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
             });
             table += '</tr></thead><tbody>';
 
+            const capitalizeWords = (str: string) => {
+                if (!str) return '';
+                return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            };
+
             items.forEach(item => {
-                const nome = item.colaboradores?.nome || 'N/A';
+                const nome = capitalizeWords(item.colaboradores?.nome || 'N/A');
                 // Use timeZone: 'UTC' to prevent the date from shifting to the previous day due to local timezone offset
                 const dataAtendimento = item.data_atendimento ? new Date(item.data_atendimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '';
-                const cargo = item.colaboradores?.cargos?.nome || 'N/A';
-                const setor = item.colaboradores?.sector || 'N/A';
-                const unidade = item.unidades?.nome_unidade || 'Avulso';
+                const cargo = capitalizeWords(item.colaboradores?.cargos?.nome || 'N/A');
+                const setor = capitalizeWords(item.colaboradores?.sector || 'N/A');
+                const unidade = capitalizeWords(item.unidades?.nome_unidade || 'Avulso');
                 const dtNasc = item.colaboradores?.data_nascimento ? new Date(item.colaboradores.data_nascimento).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '';
                 const cpf = item.colaboradores?.cpf || '';
                 const dtLib = item.aso_liberado ? new Date(item.aso_liberado).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '';
-                const observacoes = item.obs_agendamento || ''; // Adicionada coluna Observações
-                const tipo = item.tipo || '';
+                const observacoes = capitalizeWords(item.obs_agendamento || ''); // Adicionada coluna Observações
+                const tipo = capitalizeWords(item.tipo || '');
                 const valor = item.valor ? item.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '';
 
                 // Status Logic for Excel
