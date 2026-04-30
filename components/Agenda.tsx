@@ -368,7 +368,7 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                     if (Array.isArray(rawSnapshot)) {
                         // Caso correto: já é um array, usa diretamente
                         examesParaInserir = rawSnapshot;
-                    } else if (typeof rawSnapshot === 'string' && rawSnapshot.trim().startsWith('[')) {
+                    } else if (typeof rawSnapshot === 'string' && (rawSnapshot as string).trim().startsWith('[')) {
                         // Caso problemático: veio como string JSON, faz o parse
                         try {
                             const parsed = JSON.parse(rawSnapshot);
@@ -801,6 +801,8 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
             table += `<th ${styleGreen}>Data Nascimento</th>`;
             table += `<th ${styleGreen}>CPF</th>`;
             table += `<th ${styleGreen}>Data de liberação</th>`;
+            table += `<th ${styleGreen}>Qtd ASO a Cobrar</th>`;
+            table += `<th ${styleGreen}>Qtd RAC a Cobrar</th>`;
             table += `<th ${styleGreen}>Observações</th>`; // Adicionada coluna Observações
 
             // Colunas Dinâmicas (Exames - Azul)
@@ -841,6 +843,8 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                 // Força formato texto para CPF para não perder zeros a esquerda
                 table += `<td style="mso-number-format:'\\@'">${cpf}</td>`;
                 table += `<td>${dtLib}</td>`;
+                table += `<td style="text-align:center;">${item.aso_qtd_cobrar || 0}</td>`;
+                table += `<td style="text-align:center;">${item.rac_qtd_cobrar || 0}</td>`;
                 table += `<td>${observacoes}</td>`; // Adicionada coluna Observações
 
                 EXAMES_LIST_EXPORT.forEach(exame => {
@@ -1108,6 +1112,16 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                                                 <span className="font-bold">R$ {Number(apt.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                                 {apt.metodo_pagamento && <span className="text-blue-500 border-l border-blue-200 pl-1 ml-1 text-[10px] uppercase font-bold">{apt.metodo_pagamento}</span>}
                                             </div>
+                                        )}
+                                        {(apt.aso_qtd_cobrar !== undefined && apt.aso_qtd_cobrar > 0) && (
+                                            <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-green-50 text-green-700 border border-green-100">
+                                                ASO: {apt.aso_qtd_cobrar}
+                                            </span>
+                                        )}
+                                        {(apt.rac_qtd_cobrar !== undefined && apt.rac_qtd_cobrar > 0) && (
+                                            <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-100">
+                                                RAC: {apt.rac_qtd_cobrar}
+                                            </span>
                                         )}
                                     </div>
                                 </div>

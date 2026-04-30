@@ -62,6 +62,8 @@ export interface Agendamento {
   valor?: number | null; // Valor para lançamentos avulsos
   metodo_pagamento?: string | null; // Metodo de pagamento para avulsos
   enviado_empresa?: boolean | null; // Indica se foi agendado pela empresa via sistema
+  aso_qtd_cobrar?: number;
+  rac_qtd_cobrar?: number;
 }
 
 export interface Cargo {

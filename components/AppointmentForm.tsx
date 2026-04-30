@@ -230,6 +230,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   const [selectedFormularios, setSelectedFormularios] = useState<string[]>(["FICHA_CLINICA"]);
   const [obsClinica, setObsClinica] = useState('');
   const [obsLaboratorial, setObsLaboratorial] = useState('');
+  const [asoQtdCobrar, setAsoQtdCobrar] = useState(0);
+  const [racQtdCobrar, setRacQtdCobrar] = useState(0);
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -317,6 +319,9 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       if ((initialAppointment as any).observacoes) {
         setObsClinica((initialAppointment as any).observacoes);
       }
+      
+      if (initialAppointment.aso_qtd_cobrar !== undefined) setAsoQtdCobrar(initialAppointment.aso_qtd_cobrar);
+      if (initialAppointment.rac_qtd_cobrar !== undefined) setRacQtdCobrar(initialAppointment.rac_qtd_cobrar);
 
       fetchCollaboratorDetails(initialAppointment.colaborador_id);
     }
@@ -476,6 +481,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     setObsAgendamento(''); setPrioridade(false);
     setIsAvulso(false); setValorAvulso(''); setMetodoPagamento('Pix'); setOutroMetodoPagamento('');
     setSavedContext(null);
+    setAsoQtdCobrar(0);
+    setRacQtdCobrar(0);
   };
 
   const handleCancelAndExit = () => {
@@ -787,6 +794,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           valor: finalValor || initialAppointment.valor || 0,
           metodo_pagamento: finalMetodo !== 'medicao' ? finalMetodo : (initialAppointment.metodo_pagamento || 'medicao'),
           observacoes: obsClinica || null,
+          aso_qtd_cobrar: asoQtdCobrar,
+          rac_qtd_cobrar: racQtdCobrar,
           // Salas recalculadas automaticamente baseado nos exames selecionados
           ...salasCalculadas,
         };
@@ -811,6 +820,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           compareceu: false,
           status: 'pendente',
           recepcao: 'Aguardando',
+          aso_qtd_cobrar: asoQtdCobrar,
+          rac_qtd_cobrar: racQtdCobrar,
           // Salas calculadas automaticamente baseado nos exames selecionados
           ...salasCalculadas,
         };
@@ -1024,6 +1035,16 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
                 )}
               </div>
               <div><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Tipo</label><select value={appointmentData.tipo} onChange={(e) => setAppointmentData({ ...appointmentData, tipo: e.target.value })} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none"><option value="Admissional">Admissional</option><option value="Demissional">Demissional</option><option value="Periódico">Periódico</option><option value="Retorno">Retorno ao Trabalho</option><option value="Mudança">Mudança de Função</option><option value="Outros">Outros</option></select></div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Qtd ASO a Cobrar</label>
+                  <input type="number" min="0" value={asoQtdCobrar} onChange={e => setAsoQtdCobrar(parseInt(e.target.value) || 0)} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Qtd RAC a Cobrar</label>
+                  <input type="number" min="0" value={racQtdCobrar} onChange={e => setRacQtdCobrar(parseInt(e.target.value) || 0)} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" />
+                </div>
             </div>
             <div className="flex flex-col md:flex-row gap-6">
               <div className="w-full"><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Obs. Agendamento</label><textarea rows={2} value={obsAgendamento} onChange={(e) => setObsAgendamento(e.target.value)} className="w-full p-4 rounded-xl bg-yellow-50 border-transparent focus:bg-white outline-none resize-none" /></div>
