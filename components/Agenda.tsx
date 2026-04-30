@@ -466,6 +466,17 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
         }
     };
 
+    const handleUpdateQtd = async (id: number, field: 'aso_qtd_cobrar' | 'rac_qtd_cobrar', value: number) => {
+        const originalItem = appointments.find(a => a.id === id);
+        setAppointments(prev => prev.map(a => a.id === id ? { ...a, [field]: value } : a));
+        try {
+            const { error } = await supabase.from('agendamentos').update({ [field]: value }).eq('id', id);
+            if (error) throw error;
+        } catch (error: any) {
+            if (originalItem) setAppointments(prev => prev.map(a => a.id === id ? { ...a, [field]: originalItem[field] } : a));
+        }
+    };
+
     const openFicha = (url: string | null) => {
         if (url) window.open(url, '_blank');
         else alert("Ficha não disponível.");
@@ -801,8 +812,8 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
             table += `<th ${styleGreen}>Data Nascimento</th>`;
             table += `<th ${styleGreen}>CPF</th>`;
             table += `<th ${styleGreen}>Data de liberação</th>`;
-            table += `<th ${styleGreen}>Qtd ASO a Cobrar</th>`;
-            table += `<th ${styleGreen}>Qtd RAC a Cobrar</th>`;
+            table += `<th ${styleGreen}>ASO's a cobrar</th>`;
+            table += `<th ${styleGreen}>RAC a cobrar</th>`;
             table += `<th ${styleGreen}>Observações</th>`; // Adicionada coluna Observações
 
             // Colunas Dinâmicas (Exames - Azul)
@@ -1113,16 +1124,6 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                                                 {apt.metodo_pagamento && <span className="text-blue-500 border-l border-blue-200 pl-1 ml-1 text-[10px] uppercase font-bold">{apt.metodo_pagamento}</span>}
                                             </div>
                                         )}
-                                        {(apt.aso_qtd_cobrar !== undefined && apt.aso_qtd_cobrar > 0) && (
-                                            <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-green-50 text-green-700 border border-green-100">
-                                                ASO: {apt.aso_qtd_cobrar}
-                                            </span>
-                                        )}
-                                        {(apt.rac_qtd_cobrar !== undefined && apt.rac_qtd_cobrar > 0) && (
-                                            <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-100">
-                                                RAC: {apt.rac_qtd_cobrar}
-                                            </span>
-                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -1139,6 +1140,30 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                                     <button onClick={(e) => { e.stopPropagation(); toggleAttendance(apt.id, apt.compareceu); }} className={`w-8 h-8 rounded-full shadow-inner transition-all duration-500 relative flex items-center justify-center ${apt.compareceu ? 'bg-green-500 shadow-green-200' : 'bg-red-500 shadow-red-200'} hover:scale-105 active:scale-95`} title={apt.compareceu ? "Presente" : "Ausente"}>
                                         {apt.compareceu ? (<svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>) : (<div className="w-2 h-2 bg-white rounded-full opacity-50"></div>)}
                                     </button>
+                                </div>
+                                <div className="flex flex-col items-center gap-1.5 min-w-[140px]" onClick={e => e.stopPropagation()}>
+                                    <div className="flex gap-4">
+                                        <div className="flex flex-col items-center gap-1">
+                                            <span className="text-[10px] uppercase font-bold text-gray-300 tracking-wider">Aso's cobrados</span>
+                                            <input 
+                                                type="number" 
+                                                min="0"
+                                                value={apt.aso_qtd_cobrar || 0} 
+                                                onChange={(e) => handleUpdateQtd(apt.id, 'aso_qtd_cobrar', parseInt(e.target.value) || 0)}
+                                                className="w-14 h-8 text-xs font-bold rounded-lg border border-gray-200 bg-white text-gray-800 text-center outline-none focus:border-ios-primary transition-all"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col items-center gap-1">
+                                            <span className="text-[10px] uppercase font-bold text-gray-300 tracking-wider">RAC's cobrados</span>
+                                            <input 
+                                                type="number" 
+                                                min="0"
+                                                value={apt.rac_qtd_cobrar || 0} 
+                                                onChange={(e) => handleUpdateQtd(apt.id, 'rac_qtd_cobrar', parseInt(e.target.value) || 0)}
+                                                className="w-14 h-8 text-xs font-bold rounded-lg border border-gray-200 bg-white text-gray-800 text-center outline-none focus:border-ios-primary transition-all"
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="hidden md:block h-10 w-px bg-gray-100"></div>
                                 <div className="flex flex-col items-center gap-1.5" onClick={e => e.stopPropagation()}>

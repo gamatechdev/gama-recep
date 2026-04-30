@@ -1038,11 +1038,11 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Qtd ASO a Cobrar</label>
+                  <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">ASO's a cobrar</label>
                   <input type="number" min="0" value={asoQtdCobrar} onChange={e => setAsoQtdCobrar(parseInt(e.target.value) || 0)} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Qtd RAC a Cobrar</label>
+                  <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">RAC a cobrar</label>
                   <input type="number" min="0" value={racQtdCobrar} onChange={e => setRacQtdCobrar(parseInt(e.target.value) || 0)} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" />
                 </div>
             </div>
