@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: import.meta.env.API_KEY });
 
 /**
  * Transcribes audio using Gemini 2.5 Flash.
@@ -11,7 +11,7 @@ export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
   try {
     // Convert Blob to Base64
     const base64Data = await blobToBase64(audioBlob);
-    
+
     // Gemini API expects raw base64 without the data URI prefix
     const cleanBase64 = base64Data.split(',')[1];
 

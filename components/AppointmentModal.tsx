@@ -521,7 +521,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ onClose, cur
                 {isPublic && (
                     <div className="flex flex-col items-center mb-6">
                         <div className="w-16 h-16 rounded-[18px] overflow-hidden shadow-lg shadow-[#04a7bd]/20 mb-4">
-                            <img src={`${process.env.VITE_SUPABASE_URL}storage/v1/object/public/Media/Image/image-removebg-preview%20(2).png`} alt="Gama Talk" className="w-full h-full object-cover" />
+                            <img src={`${import.meta.env.VITE_SUPABASE_URL}storage/v1/object/public/Media/Image/image-removebg-preview%20(2).png`} alt="Gama Talk" className="w-full h-full object-cover" />
                         </div>
                         <h2 className="text-3xl font-bold text-slate-800 dark:text-white tracking-tight text-center">Autoagendamento</h2>
                     </div>

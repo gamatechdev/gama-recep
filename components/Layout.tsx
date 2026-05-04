@@ -43,7 +43,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, onLo
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-ios-primary to-ios-secondary flex items-center justify-center shadow-md shadow-ios-primary/20 overflow-hidden">
               <img
-                src={`${process.env.VITE_SUPABASE_URL_PUBLIC_SUPABASE_URL}/storage/v1/object/public/Media/Image/image-removebg-preview%20(2).png`}
+                src={`${import.meta.env.VITE_SUPABASE_URL_PUBLIC_SUPABASE_URL}/storage/v1/object/public/Media/Image/image-removebg-preview%20(2).png`}
                 alt="Logo"
                 className="w-5 h-5 object-contain brightness-0 invert"
               />
@@ -71,7 +71,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, onLo
           <div className="mb-12 flex flex-col items-start px-4 relative z-10">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-ios-primary to-ios-secondary flex items-center justify-center shadow-lg shadow-ios-primary/30 mb-3 overflow-hidden">
               <img
-                src={`${process.env.VITE_SUPABASE_URL}storage/v1/object/public/Media/Image/image-removebg-preview%20(2).png`}
+                src={`${import.meta.env.VITE_SUPABASE_URL}storage/v1/object/public/Media/Image/image-removebg-preview%20(2).png`}
                 alt="Gama Center Logo"
                 className="w-8 h-8 object-contain brightness-0 invert"
               />

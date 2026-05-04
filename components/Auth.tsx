@@ -83,7 +83,7 @@ const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         <div className="text-center mb-10">
           <div className="w-20 h-20 bg-gradient-to-tr from-ios-primary to-ios-secondary rounded-[24px] mx-auto flex items-center justify-center shadow-lg shadow-ios-primary/30 mb-6 transform rotate-3">
             <img
-              src={`${process.env.VITE_SUPABASE_URL}/storage/v1/object/public/Media/Image/image-removebg-preview%20(2).png`}
+              src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/Media/Image/image-removebg-preview%20(2).png`}
               alt="Gama Center Logo"
               className="w-14 h-14 object-contain brightness-0 invert"
             />
