@@ -517,6 +517,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ onClose, cur
                     </button>
                 )}
 
+
                 {isPublic && (
                     <div className="flex flex-col items-center mb-6">
                         <div className="w-16 h-16 rounded-[18px] overflow-hidden shadow-lg shadow-[#04a7bd]/20 mb-4">
@@ -543,8 +544,8 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ onClose, cur
                                 type="button"
                                 onClick={() => { setMode('existing'); resetForm(); }}
                                 className={`flex-1 py-3 text-sm font-semibold rounded-xl transition-all duration-300 ${mode === 'existing'
-                                        ? 'bg-white dark:bg-[#1c1c1e] text-[#04a7bd] shadow-sm'
-                                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-white'
+                                    ? 'bg-white dark:bg-[#1c1c1e] text-[#04a7bd] shadow-sm'
+                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-white'
                                     }`}
                             >
                                 Colaborador Existente
@@ -553,8 +554,8 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ onClose, cur
                                 type="button"
                                 onClick={() => { setMode('new'); resetForm(); }}
                                 className={`flex-1 py-3 text-sm font-semibold rounded-xl transition-all duration-300 ${mode === 'new'
-                                        ? 'bg-white dark:bg-[#1c1c1e] text-[#04a7bd] shadow-sm'
-                                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-white'
+                                    ? 'bg-white dark:bg-[#1c1c1e] text-[#04a7bd] shadow-sm'
+                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-white'
                                     }`}
                             >
                                 Novo Cadastro
