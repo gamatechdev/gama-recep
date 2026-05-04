@@ -1,4 +1,9 @@
-
+export interface ChatTag {
+  phone: string;
+  name?: string;
+  chatname?: string;
+  senderphoto?: string;
+}
 export interface User {
   id: number;
   username: string;
