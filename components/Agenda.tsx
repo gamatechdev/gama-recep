@@ -1,7 +1,8 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { supabase } from '../supabaseClient';
 import { Agendamento } from '../types';
+import { toast } from 'sonner';
+import { supabase } from '@/supabaseClient';
 
 // Copied from AppointmentForm to ensure consistency for export columns
 const EXAMES_LIST_EXPORT = [
@@ -436,7 +437,7 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
             setAppointments(prev => prev.map(a =>
                 a.id === id ? { ...a, compareceu: originalItem.compareceu, chegou_em: originalItem.chegou_em } : a
             ));
-            alert(`Erro ao atualizar status: ${error.message}`);
+            toast.error(`Erro ao atualizar status: ${error.message}`);
         }
     };
 
@@ -479,7 +480,7 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
 
     const openFicha = (url: string | null) => {
         if (url) window.open(url, '_blank');
-        else alert("Ficha não disponível.");
+        else toast.error("Ficha não disponível.");
     };
 
     const handleOpenProcedures = (apt: AgendamentoComProntuarios) => {
@@ -530,11 +531,11 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                 a.id === uploadingAsoId ? { ...a, aso_url: publicUrl } : a
             ));
 
-            alert("ASO enviado com sucesso!");
+            toast.success("ASO enviado com sucesso!");
 
         } catch (err: any) {
             console.error("Upload error:", err);
-            alert(`Erro ao enviar ASO: ${err.message}`);
+            toast.error(`Erro ao enviar ASO: ${err.message}`);
         } finally {
             setIsUploading(false);
             setUploadingAsoId(null);
@@ -602,14 +603,14 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                 uploadCount++;
             }
 
-            alert(`${uploadCount} arquivo(s) do E-social enviado(s) com sucesso!`);
+            toast.success(`${uploadCount} arquivo(s) do E-social enviado(s) com sucesso!`);
             if (!showProcedureListModal) {
                 setUploadModalAppointmentId(null);
             }
 
         } catch (err: any) {
             console.error("Esoc Upload error:", err);
-            alert(`Erro ao enviar arquivos: ${err.message}`);
+            toast.error(`Erro ao enviar arquivos: ${err.message}`);
         } finally {
             setIsUploading(false);
             // Clear input
@@ -686,7 +687,7 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                 uploadCount++;
             }
 
-            alert(`${uploadCount} prontuário(s) enviado(s) com sucesso!`);
+            toast.success(`${uploadCount} prontuário(s) enviado(s) com sucesso!`);
 
             // Update local state instantly
             if (uploadedFiles.length > 0) {
@@ -707,7 +708,7 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
 
         } catch (err: any) {
             console.error("Prontuario Upload error:", err);
-            alert(`Erro ao enviar arquivos: ${err.message}`);
+            toast.error(`Erro ao enviar arquivos: ${err.message}`);
         } finally {
             setIsUploading(false);
             if (prontuarioFileInputRef.current) {
@@ -764,7 +765,7 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
             }
 
             if (allItems.length === 0) {
-                alert("Nenhum dado encontrado no período selecionado.");
+                toast.error("Nenhum dado encontrado no período selecionado.");
                 setIsExporting(false);
                 return;
             }
@@ -886,7 +887,7 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
 
             setShowExportModal(false);
         } catch (err: any) {
-            alert(`Erro na exportação: ${err.message}`);
+            toast.error(`Erro na exportação: ${err.message}`);
         } finally {
             setIsExporting(false);
         }
@@ -1150,20 +1151,20 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                                     <div className="flex gap-4">
                                         <div className="flex flex-col items-center gap-1">
                                             <span className="text-[10px] uppercase font-bold text-gray-300 tracking-wider">Aso's cobrados</span>
-                                            <input 
-                                                type="number" 
+                                            <input
+                                                type="number"
                                                 min="0"
-                                                value={apt.aso_qtd_cobrar || 0} 
+                                                value={apt.aso_qtd_cobrar || 0}
                                                 onChange={(e) => handleUpdateQtd(apt.id, 'aso_qtd_cobrar', parseInt(e.target.value) || 0)}
                                                 className="w-14 h-8 text-xs font-bold rounded-lg border border-gray-200 bg-white text-gray-800 text-center outline-none focus:border-ios-primary transition-all"
                                             />
                                         </div>
                                         <div className="flex flex-col items-center gap-1">
                                             <span className="text-[10px] uppercase font-bold text-gray-300 tracking-wider">RAC's cobrados</span>
-                                            <input 
-                                                type="number" 
+                                            <input
+                                                type="number"
                                                 min="0"
-                                                value={apt.rac_qtd_cobrar || 0} 
+                                                value={apt.rac_qtd_cobrar || 0}
                                                 onChange={(e) => handleUpdateQtd(apt.id, 'rac_qtd_cobrar', parseInt(e.target.value) || 0)}
                                                 className="w-14 h-8 text-xs font-bold rounded-lg border border-gray-200 bg-white text-gray-800 text-center outline-none focus:border-ios-primary transition-all"
                                             />

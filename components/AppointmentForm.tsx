@@ -2,6 +2,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Colaborador, Unidade, Agendamento } from '../types';
+import { SearchableSelect } from './ui/SearchableSelect';
+import { Search, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const EXAMES_LIST = [
   { "idx": 0, "id": 447, "nome": "Avaliação Clínica" },
@@ -63,7 +66,8 @@ const FORMULARIOS_OPTIONS = [
   { label: "Prontuário Médico", value: "PRONTUARIO_MEDICO" },
   { label: "Audiometria", value: "AUDIOMETRIA" },
   { label: "Acuidade Visual", value: "ACUIDADE_VISUAL" },
-  { label: "Avaliação Psicossocial", value: "AVALIACAO_PSICOSSOCIAL_SIMPLES" }
+  { label: "Avaliação Psicossocial", value: "AVALIACAO_PSICOSSOCIAL_SIMPLES" },
+  { label: "Questionário de Epilepsia", value: "QUESTIONARIO_EPILEPSIA" }
 ];
 
 interface ChatTag {
@@ -127,7 +131,7 @@ const SearchableInput: React.FC<{
           </svg>
         </div>
       </div>
-      {showList && value && (
+      {showList && (
         <div className="absolute z-30 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-float max-h-48 overflow-y-auto custom-scrollbar">
           {filteredOptions.length > 0 ? (
             filteredOptions.map((opt) => (
@@ -216,6 +220,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   const [newCompanyName, setNewCompanyName] = useState('');
   const [clientsList, setClientsList] = useState<OptionItem[]>([]);
   const [selectedClientName, setSelectedClientName] = useState('');
+  const [newCompanyType, setNewCompanyType] = useState<'empresa' | 'unidade'>('unidade');
   const [selectedClientId, setSelectedClientId] = useState<string | number | null>(null);
 
   // Error Modal State
@@ -233,6 +238,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   const [asoQtdCobrar, setAsoQtdCobrar] = useState(0);
   const [racQtdCobrar, setRacQtdCobrar] = useState(0);
 
+  const [selectedSetorName, setSelectedSetorName] = useState('');
+  const [selectedSetorId, setSelectedSetorId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
@@ -245,6 +252,10 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   const [contactsList, setContactsList] = useState<ChatTag[]>([]);
   const [selectedContact, setSelectedContact] = useState<ChatTag | null>(null);
   const [sendingMsg, setSendingMsg] = useState(false);
+  const [loadingContacts, setLoadingContacts] = useState(false);
+  const [showNewContactModal, setShowNewContactModal] = useState(false);
+  const [newContactData, setNewContactData] = useState({ chatname: '', phone: '' });
+  const [hasMoreContacts, setHasMoreContacts] = useState(true);
 
   // --- Delete Modal State ---
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -255,6 +266,27 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     fetchInitialData();
     fetchCurrentUser();
   }, []);
+
+  // Auto-search in database if local search has no results
+  useEffect(() => {
+    if (!showContactListModal || !contactSearchTerm.trim() || contactSearchTerm.length < 3) return;
+
+    // Check if we have results locally
+    const searchTerm = contactSearchTerm.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const localResults = contactsList.filter(contact => {
+      const chatName = (contact.chatname || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const phone = (contact.phone || "").replace(/\D/g, "");
+      const searchDigits = contactSearchTerm.replace(/\D/g, "");
+      return chatName.includes(searchTerm) || (searchDigits !== "" && phone.includes(searchDigits));
+    });
+
+    if (localResults.length === 0 && !loadingContacts) {
+      const timer = setTimeout(() => {
+        searchAllContacts();
+      }, 600); // 600ms debounce to avoid spamming
+      return () => clearTimeout(timer);
+    }
+  }, [contactSearchTerm, showContactListModal, contactsList.length]);
 
   useEffect(() => {
     if (initialAppointment) {
@@ -319,9 +351,13 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       if ((initialAppointment as any).observacoes) {
         setObsClinica((initialAppointment as any).observacoes);
       }
-      
+
       if (initialAppointment.aso_qtd_cobrar !== undefined) setAsoQtdCobrar(initialAppointment.aso_qtd_cobrar);
       if (initialAppointment.rac_qtd_cobrar !== undefined) setRacQtdCobrar(initialAppointment.rac_qtd_cobrar);
+
+      if (initialAppointment.prontuario_id) {
+        setSelectedFormularios(initialAppointment.prontuario_id);
+      }
 
       fetchCollaboratorDetails(initialAppointment.colaborador_id);
     }
@@ -330,7 +366,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   const fetchCollaboratorDetails = async (id: string) => {
     const { data, error } = await supabase
       .from('colaboradores')
-      .select(`*, cargos ( nome )`)
+      .select(`*, cargos ( nome ), setor_ref:setorid ( nome )`)
       .eq('id', id)
       .single();
 
@@ -348,7 +384,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   };
 
   const fetchInitialData = async () => {
-    const { data: colabs } = await supabase.from('colaboradores').select('id, nome, cpf, data_nascimento, sexo, setor, cargo');
+    const { data: colabs } = await supabase.from('colaboradores').select('id, nome, cpf, data_nascimento, sexo, setor, cargo, setorid');
     const { data: units } = await supabase.from('unidades').select('id, nome_unidade');
     const { data: setores } = await supabase.from('setor').select('id, nome');
     const { data: cargos } = await supabase.from('cargos').select('id, nome');
@@ -375,15 +411,25 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     }
   };
 
-  const handleSelectColab = (colab: Colaborador) => {
+  const handleSelectColab = async (colab: any) => {
     setSelectedColabId(colab.id);
 
-    let funcaoText = '';
-    if (colab.cargos && colab.cargos.nome) {
-      funcaoText = colab.cargos.nome;
-    } else if (colab.cargo) {
-      const found = cargosList.find(c => c.id === colab.cargo);
-      if (found) funcaoText = found.label;
+    // Resolve Setor Name and ID
+    if (colab.setor_ref) {
+      setSelectedSetorName(colab.setor_ref.nome);
+      setSelectedSetorId(colab.setorid);
+    } else if (colab.setorid) {
+      const { data } = await supabase.from('setor').select('nome').eq('id', colab.setorid).maybeSingle();
+      if (data) {
+        setSelectedSetorName(data.nome);
+        setSelectedSetorId(colab.setorid);
+      } else {
+        setSelectedSetorName('');
+        setSelectedSetorId(null);
+      }
+    } else {
+      setSelectedSetorName('');
+      setSelectedSetorId(null);
     }
 
     setColabFormData({
@@ -392,7 +438,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       data_nascimento: colab.data_nascimento,
       sexo: colab.sexo || 'M',
       setor: colab.setor || '',
-      funcao: funcaoText
+      funcao: colab.setor || '' // Carregamos o dado da coluna 'setor' para o campo de Função
     });
     setColabSearchTerm('');
   };
@@ -421,16 +467,6 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   };
 
   const handleSaveNewUnit = async () => {
-    let finalClientId = selectedClientId;
-
-    // Fallback: Resolve client ID from name (case insensitive) if ID missing
-    if (!finalClientId && selectedClientName.trim()) {
-      const found = clientsList.find(c => c.label.toLowerCase() === selectedClientName.trim().toLowerCase());
-      if (found) {
-        finalClientId = found.id;
-      }
-    }
-
     // 1. Validate if unit name is provided
     if (!newCompanyName.trim()) {
       setErrorModalMessage("Informe o nome da unidade.");
@@ -438,34 +474,51 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       return;
     }
 
-    // 2. Validate if a client was found/selected
-    if (!finalClientId) {
-      setErrorModalMessage("Selecione um cliente (Matriz) para continuar.");
-      setShowErrorModal(true);
-      return;
-    }
-
     setLoading(true);
     try {
+      let finalClientId = selectedClientId;
+
+      // Se for do tipo Empresa, primeiro criamos o registro na tabela clientes
+      if (newCompanyType === 'empresa') {
+        const { data: clientData, error: clientError } = await supabase
+          .from('clientes')
+          .insert({ nome_fantasia: newCompanyName.trim() })
+          .select('id').single();
+
+        if (clientError) throw clientError;
+        finalClientId = clientData.id;
+      } else {
+        // Se for do tipo Unidade, precisamos de um cliente selecionado
+        if (!finalClientId && selectedClientName.trim()) {
+          const found = clientsList.find(c => c.label.toLowerCase() === selectedClientName.trim().toLowerCase());
+          if (found) finalClientId = found.id;
+        }
+
+        if (!finalClientId) {
+          throw new Error("Selecione um cliente (Matriz) para continuar.");
+        }
+      }
+
+      // Agora criamos a unidade vinculada ao cliente (novo ou existente)
       const { data: unitData, error: unitError } = await supabase
         .from('unidades')
-        .insert({ nome_unidade: newCompanyName, empresaid: finalClientId })
+        .insert({ nome_unidade: newCompanyName.trim(), empresaid: finalClientId })
         .select('id, nome_unidade').single();
 
       if (unitError) throw unitError;
 
       if (unitData) {
         setUnidades(prev => [...prev, unitData]);
-        setAppointmentData({ ...appointmentData, unidade: unitData.id.toString() });
+        setAppointmentData(prev => ({ ...prev, unidade: unitData.id.toString() }));
         setUnitSearchTerm(unitData.nome_unidade);
         setShowNewCompanyModal(false);
         setNewCompanyName('');
         setSelectedClientId(null);
         setSelectedClientName('');
-        setMessage({ type: 'success', text: 'Unidade cadastrada!' });
+        setMessage({ type: 'success', text: 'Cadastrado com sucesso!' });
       }
     } catch (err: any) {
-      alert(`Erro: ${err.message}`);
+      toast.error(`Erro: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -479,6 +532,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     setColabSearchTerm(''); setUnitSearchTerm('');
     setAppointmentData(prev => ({ ...prev, unidade: '' }));
     setObsAgendamento(''); setPrioridade(false);
+    setSelectedSetorName('');
+    setSelectedSetorId(null);
     setIsAvulso(false); setValorAvulso(''); setMetodoPagamento('Pix'); setOutroMetodoPagamento('');
     setSavedContext(null);
     setAsoQtdCobrar(0);
@@ -504,11 +559,11 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         .eq('id', initialAppointment.id);
 
       if (error) throw error;
-      if (count === 0) alert("Erro ao excluir.");
+      if (count === 0) toast.error("Erro ao excluir.");
       else if (onCancel) onCancel();
 
     } catch (err: any) {
-      alert(`Erro: ${err.message}`);
+      toast.error(`Erro: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -538,25 +593,142 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   };
 
   // --- Notification Logic ---
+  const PAGE_SIZE = 300;
+
   const handleNotifyYes = async () => {
     setShowNotifyModal(false);
-    setLoading(true);
+    setShowContactListModal(true);
+    setLoadingContacts(true);
+    setHasMoreContacts(true);
+    setContactsList([]);
 
     try {
-      const { data: contacts } = await supabase.from('chat_tags').select('*').order('chatname');
+      const { data: contacts, error } = await supabase
+        .from('chat_tags')
+        .select('*')
+        .order('chatname')
+        .range(0, PAGE_SIZE - 1);
+
+      if (error) throw error;
+
       if (contacts && contacts.length > 0) {
         setContactsList(contacts);
         setContactSearchTerm('');
-        setShowContactListModal(true);
+        if (contacts.length < PAGE_SIZE) setHasMoreContacts(false);
       } else {
-        alert("Nenhum contato encontrado.");
+        toast.error("Nenhum contato encontrado.");
+        setShowContactListModal(false);
         handleCancelAndExit();
       }
     } catch (e: any) {
-      alert("Erro ao buscar contatos: " + e.message);
+      toast.error("Erro ao buscar contatos: " + e.message);
       handleCancelAndExit();
     } finally {
-      setLoading(false);
+      setLoadingContacts(false);
+    }
+  };
+
+  const loadMoreContacts = async () => {
+    if (loadingContacts || !hasMoreContacts) return;
+    setLoadingContacts(true);
+
+    try {
+      const from = contactsList.length;
+      const to = from + PAGE_SIZE - 1;
+
+      const { data: nextContacts, error } = await supabase
+        .from('chat_tags')
+        .select('*')
+        .order('chatname')
+        .range(from, to);
+
+      if (error) throw error;
+
+      if (nextContacts && nextContacts.length > 0) {
+        setContactsList(prev => [...prev, ...nextContacts]);
+        if (nextContacts.length < PAGE_SIZE) setHasMoreContacts(false);
+      } else {
+        setHasMoreContacts(false);
+      }
+    } catch (e: any) {
+      console.error("Erro ao carregar mais contatos:", e.message);
+    } finally {
+      setLoadingContacts(false);
+    }
+  };
+
+  const searchAllContacts = async () => {
+    if (!contactSearchTerm.trim()) return;
+    setLoadingContacts(true);
+
+    try {
+      // Busca global usando ilike (case-insensitive) na base de dados
+      const { data, error } = await supabase
+        .from('chat_tags')
+        .select('*')
+        .or(`chatname.ilike.%${contactSearchTerm}%,phone.ilike.%${contactSearchTerm}%`)
+        .order('chatname')
+        .limit(300);
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        // Mescla com a lista atual, evitando duplicatas por telefone
+        setContactsList(prev => {
+          const existingPhones = new Set(prev.map(c => c.phone));
+          const newOnes = data.filter(c => !existingPhones.has(c.phone));
+          return [...prev, ...newOnes];
+        });
+      } else {
+        toast.error("Nenhum contato encontrado na base de dados.");
+      }
+    } catch (e: any) {
+      console.error("Erro na busca global:", e.message);
+      toast.error("Erro ao buscar na base: " + e.message);
+    } finally {
+      setLoadingContacts(false);
+    }
+  };
+
+  const handleSaveNewContact = async () => {
+    if (!newContactData.chatname.trim() || !newContactData.phone.trim()) {
+      toast.error("Informe nome e telefone.");
+      return;
+    }
+
+    setLoadingContacts(true);
+    try {
+      // Clean phone: keep only digits
+      let digits = newContactData.phone.replace(/\D/g, '');
+
+      // Auto-prepend Brazil country code if missing (standard 10 or 11 digit numbers)
+      if ((digits.length === 11 || digits.length === 10) && !digits.startsWith('55')) {
+        digits = '55' + digits;
+      }
+
+      const { data, error } = await supabase
+        .from('chat_tags')
+        .insert({
+          chatname: newContactData.chatname.trim(),
+          phone: digits,
+          tag: 1 // Default tag
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setContactsList(prev => [data as ChatTag, ...prev]);
+        handleContactSelect(data as ChatTag);
+        setShowNewContactModal(false);
+        setNewContactData({ chatname: '', phone: '' });
+        toast.success("Contato salvo!");
+      }
+    } catch (e: any) {
+      toast.error("Erro ao salvar: " + e.message);
+    } finally {
+      setLoadingContacts(false);
     }
   };
 
@@ -600,9 +772,9 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         headers: { "Client-Token": "F53f53bad10a9494f92d5e33804220a26S", "Content-Type": "application/json" },
         body: JSON.stringify({ phone: selectedContact.phone, message: messageBody })
       });
-      alert("Notificação enviada!");
+      toast.success("Notificação enviada com sucesso!");
     } catch (e) {
-      alert("Erro ao enviar mensagem.");
+      toast.error("Erro ao enviar mensagem.");
     } finally {
       setSendingMsg(false);
       setShowConfirmSendModal(false);
@@ -657,17 +829,28 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         if (!finalMetodo.trim()) throw new Error("Informe a forma de pagamento.");
       }
 
-      let cargoId = colabFormData.funcao ? await resolveCargoId(colabFormData.funcao) : null;
-      let setorName = colabFormData.setor ? (await resolveSetor(colabFormData.setor) || colabFormData.setor) : colabFormData.setor;
+      // Sector logic: if it's a new name (no ID), create it first
+      let finalSetorId = selectedSetorId;
+      if (!finalSetorId && selectedSetorName.trim()) {
+        const { data: existingSetor } = await supabase.from('setor').select('id').ilike('nome', selectedSetorName.trim()).maybeSingle();
+        if (existingSetor) {
+          finalSetorId = existingSetor.id;
+        } else {
+          const { data: newSetor, error: sErr } = await supabase.from('setor').insert({ nome: selectedSetorName.trim() }).select().single();
+          if (sErr) throw sErr;
+          finalSetorId = newSetor.id;
+        }
+      }
 
       const colabPayload = {
         nome: colabFormData.nome,
         cpf: colabFormData.cpf,
         data_nascimento: colabFormData.data_nascimento,
         sexo: colabFormData.sexo,
-        setor: setorName,
+        setor: colabFormData.funcao, // Salvando o texto da Função na coluna Setor
+        setorid: finalSetorId, // Vinculando ao ID do setor (novo ou existente)
         unidade: unitId,
-        cargo: cargoId
+        cargo: null // Não estamos mais usando a tabela auxiliar de cargos
       };
 
       if (mode === 'new') {
@@ -691,12 +874,12 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         empresa: selectedUnidade?.nome_unidade || "Matriz",
         nome: colabFormData.nome,
         dataExame: appointmentData.data_atendimento,
-        funcao: colabFormData.funcao || setorName || "Não informado",
+        funcao: colabFormData.funcao || "Não informado",
         cpf: colabFormData.cpf,
         dataNascimento: colabFormData.data_nascimento,
         sexo: colabFormData.sexo,
         tipoExame: appointmentData.tipo,
-        setor: setorName || "Operacional",
+        setor: selectedSetorName || "Operacional",
         tipo_exame: [appointmentData.tipo],
         exames_requisitados: examsForPdf, // Lista modificada apenas para o PDF
         observacoesClinica: obsClinica,
@@ -796,6 +979,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           observacoes: obsClinica || null,
           aso_qtd_cobrar: asoQtdCobrar,
           rac_qtd_cobrar: racQtdCobrar,
+          prontuario_id: selectedFormularios,
           // Salas recalculadas automaticamente baseado nos exames selecionados
           ...salasCalculadas,
         };
@@ -822,6 +1006,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           recepcao: 'Aguardando',
           aso_qtd_cobrar: asoQtdCobrar,
           rac_qtd_cobrar: racQtdCobrar,
+          prontuario_id: selectedFormularios,
           // Salas calculadas automaticamente baseado nos exames selecionados
           ...salasCalculadas,
         };
@@ -867,22 +1052,28 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       .replace(/[^a-z\s]/g, "") // Remove everything except letters and spaces (removes numbers/emojis)
       .trim();
   };
-
   // --- Strict Contact Filtering Logic ---
   const filteredContacts = contactsList.filter(contact => {
-    // 1. If input is empty, show NO ONE
-    if (!contactSearchTerm.trim()) return false;
+    if (!contactSearchTerm.trim()) return true;
 
-    const cleanSearch = cleanText(contactSearchTerm);
+    const searchTerm = contactSearchTerm.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const chatName = (contact.chatname || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    // const name = (contact.name || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const phone = (contact.phone || "").replace(/\D/g, "");
+    const searchDigits = contactSearchTerm.replace(/\D/g, "");
 
-    // 2. If search was only numbers/symbols and became empty string, also return false
-    if (!cleanSearch) return false;
-
-    const cleanName = cleanText(contact.chatname || '');
-
-    // 3. Strict inclusion on cleaned text
-    return cleanName.includes(cleanSearch);
+    return chatName.includes(searchTerm) || (searchDigits !== "" && phone.includes(searchDigits));
   });
+
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    let formatted = digits;
+    if (digits.length <= 11) {
+      formatted = digits.replace(/^(\d{2})(\d)/g, '($1) $2');
+      formatted = formatted.replace(/(\d{5})(\d)/, '$1-$2');
+    }
+    return formatted.substring(0, 15);
+  };
 
   return (
     <div className="max-w-5xl mx-auto pb-10 relative">
@@ -950,8 +1141,30 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
                 <div><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">CPF</label><input type="text" required value={colabFormData.cpf} onChange={e => setColabFormData({ ...colabFormData, cpf: e.target.value })} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" /></div>
                 <div><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Nascimento</label><input type="date" required value={colabFormData.data_nascimento} onChange={e => setColabFormData({ ...colabFormData, data_nascimento: e.target.value })} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" /></div>
                 <div><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Sexo</label><select required value={colabFormData.sexo} onChange={e => setColabFormData({ ...colabFormData, sexo: e.target.value })} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none"><option value="M">Masculino</option><option value="F">Feminino</option></select></div>
-                <div><SearchableInput label="Setor" value={colabFormData.setor} onChange={(val) => setColabFormData({ ...colabFormData, setor: val })} onSelect={(val) => setColabFormData({ ...colabFormData, setor: val })} options={setoresList} /></div>
-                <div><SearchableInput label="Função" value={colabFormData.funcao} onChange={(val) => setColabFormData({ ...colabFormData, funcao: val })} onSelect={(val) => setColabFormData({ ...colabFormData, funcao: val })} options={cargosList} /></div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Função</label>
+                  <input
+                    type="text"
+                    value={colabFormData.funcao}
+                    onChange={e => setColabFormData({ ...colabFormData, funcao: e.target.value })}
+                    className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none transition-all"
+                    placeholder="Digite a função..."
+                  />
+                </div>
+                <div>
+                  <SearchableSelect
+                    label="Setor"
+                    value={selectedSetorName}
+                    options={setoresList}
+                    placeholder="Pesquisar ou digite setor..."
+                    onSelect={(val) => {
+                      setSelectedSetorName(val);
+                      const found = setoresList.find(s => s.label === val);
+                      setSelectedSetorId(found ? (found.id as number) : null);
+                    }}
+                    addNewLabel="+ Usar como novo Setor"
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -965,15 +1178,14 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
               <div>
                 {!isAvulso ? (
                   <>
-                    <SearchableInput
+                    <SearchableSelect
                       label="Empresa / Unidade"
                       value={unitSearchTerm}
-                      onChange={(val) => { setUnitSearchTerm(val); setAppointmentData(prev => ({ ...prev, unidade: '' })); if (val !== "Prefeitura/ Estado") { setValorAvulso(''); setMetodoPagamento('Pix'); setOutroMetodoPagamento(''); } }}
                       onSelect={handleSelectUnit}
                       options={unitOptions}
                       required={!isAvulso}
-                      onAddNew={async () => {
-                        setNewCompanyName(unitSearchTerm);
+                      onAddNew={async (val) => {
+                        setNewCompanyName(val || "");
                         // Fetch clients for the dropdown
                         const { data } = await supabase.from('clientes').select('id, nome_fantasia').order('nome_fantasia');
                         if (data) {
@@ -1037,14 +1249,14 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
               <div><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Tipo</label><select value={appointmentData.tipo} onChange={(e) => setAppointmentData({ ...appointmentData, tipo: e.target.value })} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none"><option value="Admissional">Admissional</option><option value="Demissional">Demissional</option><option value="Periódico">Periódico</option><option value="Retorno">Retorno ao Trabalho</option><option value="Mudança">Mudança de Função</option><option value="Outros">Outros</option></select></div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">ASO's a cobrar</label>
-                  <input type="number" min="0" value={asoQtdCobrar} onChange={e => setAsoQtdCobrar(parseInt(e.target.value) || 0)} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">RAC a cobrar</label>
-                  <input type="number" min="0" value={racQtdCobrar} onChange={e => setRacQtdCobrar(parseInt(e.target.value) || 0)} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" />
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">ASO's a cobrar</label>
+                <input type="number" min="0" value={asoQtdCobrar} onChange={e => setAsoQtdCobrar(parseInt(e.target.value) || 0)} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">RAC a cobrar</label>
+                <input type="number" min="0" value={racQtdCobrar} onChange={e => setRacQtdCobrar(parseInt(e.target.value) || 0)} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" />
+              </div>
             </div>
             <div className="flex flex-col md:flex-row gap-6">
               <div className="w-full"><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Obs. Agendamento</label><textarea rows={2} value={obsAgendamento} onChange={(e) => setObsAgendamento(e.target.value)} className="w-full p-4 rounded-xl bg-yellow-50 border-transparent focus:bg-white outline-none resize-none" /></div>
@@ -1055,6 +1267,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           <div className="h-px bg-gray-100 w-full"></div>
 
           <div className="space-y-4">
+            <h3 className="text-sm uppercase tracking-wider text-ios-subtext font-bold">Prontuários</h3>
+
             <div className="flex flex-wrap gap-2">{FORMULARIOS_OPTIONS.map((form) => (<button key={form.value} type="button" onClick={() => toggleFormulario(form.value)} className={`px-4 py-2.5 rounded-xl text-sm font-semibold border ${selectedFormularios.includes(form.value) ? 'bg-ios-secondary text-white border-ios-secondary' : 'bg-white text-gray-600 border-gray-200'}`}>{form.label}</button>))}</div>
           </div>
 
@@ -1075,36 +1289,91 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           </div>
 
           <div className="pt-6 space-y-4">
-            <button type="submit" disabled={loading} className={`w-full h-14 rounded-2xl font-bold text-lg text-white shadow-xl ${loading ? 'bg-gray-300' : 'bg-ios-primary'}`}>{loading ? '...' : (initialAppointment ? 'Atualizar Agendamento' : 'Confirmar')}</button>
+            <button
+              type="submit"
+              disabled={loading}
+              className={`w-full h-14 rounded-2xl font-bold text-lg text-white shadow-xl flex items-center justify-center gap-2 transition-all ${loading ? 'bg-gray-300' : 'bg-ios-primary hover:bg-ios-secondary'}`}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {initialAppointment ? 'Atualizando...' : 'Confirmando...'}
+                </>
+              ) : (
+                initialAppointment ? 'Atualizar Agendamento' : 'Confirmar'
+              )}
+            </button>
             {initialAppointment && (<button type="button" onClick={handleDeleteRequest} disabled={loading} className="w-full h-14 rounded-2xl font-bold text-lg text-red-500 bg-red-50 border border-red-100">Excluir</button>)}
           </div>
         </form>
       </div>
 
       {showNewCompanyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-ios p-6 max-w-md w-full shadow-2xl space-y-4">
-            <h3 className="text-xl font-bold">Nova Unidade</h3>
-            <div className="space-y-4">
-              <SearchableInput
-                label="Cliente / Empresa Matriz"
-                value={selectedClientName}
-                onChange={(val) => { setSelectedClientName(val); setSelectedClientId(null); }}
-                onSelect={handleSelectClient}
-                options={clientsList}
-                placeholder="Pesquisar cliente..."
-                required
-                onAddNew={undefined} // No new client creation here
-                noResultText="Entre em contato com a equipe de T.I"
-              />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white rounded-ios p-8 max-w-md w-full shadow-2xl space-y-6">
+            <div className="flex justify-between items-center border-b border-gray-100 pb-4">
+              <h3 className="text-xl font-bold text-gray-900">Novo Cadastro</h3>
+              <button onClick={() => setShowNewCompanyModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="flex bg-gray-100 p-1.5 rounded-2xl">
+              <button
+                type="button"
+                onClick={() => setNewCompanyType('empresa')}
+                className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${newCompanyType === 'empresa' ? 'bg-white text-ios-primary shadow-sm' : 'text-gray-500'}`}
+              >
+                Empresa (Matriz)
+              </button>
+              <button
+                type="button"
+                onClick={() => setNewCompanyType('unidade')}
+                className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${newCompanyType === 'unidade' ? 'bg-white text-ios-primary shadow-sm' : 'text-gray-500'}`}
+              >
+                Unidade (Filial)
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              {newCompanyType === 'unidade' && (
+                <div className="animate-in slide-in-from-top-2 duration-300">
+                  <SearchableSelect
+                    label="Selecione a Matriz"
+                    value={selectedClientName}
+                    onSelect={handleSelectClient}
+                    options={clientsList}
+                    placeholder="Pesquisar empresa matriz..."
+                    required
+                    noResultText="Nenhuma empresa encontrada"
+                  />
+                </div>
+              )}
+
               <div>
-                <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Nome da Unidade</label>
-                <input type="text" value={newCompanyName} onChange={e => setNewCompanyName(e.target.value)} className="w-full h-14 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" placeholder="Ex: Filial Centro, Obra 01..." />
+                <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1 uppercase tracking-wide">
+                  {newCompanyType === 'empresa' ? "Nome da Empresa" : "Nome da Unidade"}
+                </label>
+                <input
+                  type="text"
+                  value={newCompanyName}
+                  onChange={e => setNewCompanyName(e.target.value)}
+                  className="w-full h-14 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white focus:border-ios-primary focus:ring-4 focus:ring-ios-primary/10 outline-none transition-all text-gray-800 font-medium"
+                  placeholder={newCompanyType === 'empresa' ? "Ex: Coca-Cola, Vale..." : "Ex: Filial Centro, Obra 01..."}
+                />
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowNewCompanyModal(false)} className="flex-1 py-3 font-semibold bg-gray-100 rounded-xl">Cancelar</button>
-              <button onClick={handleSaveNewUnit} className="flex-1 py-3 font-semibold text-white bg-ios-primary rounded-xl">Salvar</button>
+
+            <div className="flex gap-3 pt-4">
+              <button onClick={() => setShowNewCompanyModal(false)} className="flex-1 py-4 font-bold text-gray-500 bg-gray-100 rounded-2xl hover:bg-gray-200 transition-colors">Cancelar</button>
+              <button
+                onClick={handleSaveNewUnit}
+                disabled={loading}
+                className="flex-1 py-4 font-bold text-white bg-ios-primary rounded-2xl shadow-lg shadow-ios-primary/20 hover:bg-ios-secondary transition-all flex items-center justify-center gap-2"
+              >
+                {loading && <Loader2 className="w-5 h-5 animate-spin" />}
+                Salvar
+              </button>
             </div>
           </div>
         </div>
@@ -1145,33 +1414,81 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       {showContactListModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-white rounded-ios max-w-md w-full shadow-2xl h-[500px] flex flex-col overflow-hidden">
-            <div className="p-6 border-b border-gray-100">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold">Selecione o Contato</h3>
-                <button onClick={() => { setShowContactListModal(false); handleCancelAndExit(); }} className="text-gray-400">✕</button>
+            <div className="flex items-center justify-between gap-4 p-4 border-b border-gray-100 bg-gray-50/30">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="Pesquisar por nome ou celular..."
+                  className="w-full h-12 pl-12 pr-4 rounded-2xl bg-white border border-gray-200 focus:border-ios-primary focus:ring-4 focus:ring-ios-primary/10 outline-none transition-all text-sm font-medium"
+                  value={contactSearchTerm}
+                  onChange={(e) => setContactSearchTerm(e.target.value)}
+                />
               </div>
-              <input
-                type="text"
-                placeholder="Pesquisar contato..."
-                value={contactSearchTerm}
-                onChange={(e) => setContactSearchTerm(e.target.value)}
-                className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white focus:border-ios-primary outline-none"
-                autoFocus
-              />
+              <button
+                onClick={() => setShowNewContactModal(true)}
+                className="h-12 px-4 bg-green-500 text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-green-500/20 hover:bg-green-600 transition-all whitespace-nowrap text-sm"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                Novo Contato
+              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2 bg-gray-50">
-              {filteredContacts.length > 0 ? (
-                filteredContacts.map(contact => (
-                  <button key={contact.phone} onClick={() => handleContactSelect(contact)} className="w-full p-4 flex items-center gap-4 bg-white hover:bg-ios-primary/5 rounded-xl transition-all border border-gray-100 hover:border-ios-primary/20 text-left">
+              {loadingContacts && contactsList.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full space-y-3">
+                  <Loader2 className="w-10 h-10 text-ios-primary animate-spin" />
+                  <p className="text-ios-subtext font-medium">Buscando contatos...</p>
+                </div>
+              ) : filteredContacts.length > 0 ? (
+                filteredContacts.map((contact, index) => (
+                  <button key={`${contact.phone}-${index}`} onClick={() => handleContactSelect(contact)} className="w-full p-4 flex items-center gap-4 bg-white hover:bg-ios-primary/5 rounded-xl transition-all border border-gray-100 hover:border-ios-primary/20 text-left">
                     <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-500">{contact.chatname.charAt(0)}</div>
                     <div><p className="font-bold text-gray-900">{contact.chatname}</p><p className="text-xs text-gray-400">{contact.phone}</p></div>
                   </button>
                 ))
               ) : (
-                <div className="text-center py-10 text-gray-400">
-                  {!contactSearchTerm.trim() ? "Digite para pesquisar..." : "Nenhum contato encontrado."}
+                <div className="text-center py-10">
+                  {contactSearchTerm.trim() ? (
+                    <div className="space-y-4">
+                      {loadingContacts ? (
+                        <div className="flex flex-col items-center gap-3 animate-in fade-in">
+                          <Loader2 className="w-8 h-8 text-ios-primary animate-spin" />
+                          <p className="text-gray-400 font-medium">Buscando na base de dados...</p>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-gray-400">Nenhum contato encontrado.</p>
+                          <button
+                            onClick={searchAllContacts}
+                            className="px-6 py-3 bg-ios-primary text-white rounded-xl font-bold shadow-lg shadow-ios-primary/20 hover:bg-ios-secondary transition-all flex items-center gap-2 mx-auto"
+                          >
+                            <Search size={18} />
+                            Tentar busca profunda
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-gray-400">Nenhum contato disponível.</p>
+                  )}
                 </div>
+              )}
+
+              {hasMoreContacts && !contactSearchTerm.trim() && (
+                <button
+                  onClick={loadMoreContacts}
+                  disabled={loadingContacts}
+                  className="w-full py-4 text-ios-primary font-bold text-sm bg-white hover:bg-gray-50 rounded-xl transition-all border border-dashed border-ios-primary/30 mt-2 flex items-center justify-center gap-2"
+                >
+                  {loadingContacts ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Carregando...
+                    </>
+                  ) : "Carregar mais contatos"}
+                </button>
               )}
             </div>
             <div className="p-4 border-t border-gray-100 text-center">
@@ -1189,6 +1506,54 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
             <div className="flex gap-3">
               <button onClick={() => { setShowConfirmSendModal(false); handleCancelAndExit(); }} className="flex-1 py-3 font-semibold bg-gray-100 rounded-xl" disabled={sendingMsg}>Cancelar</button>
               <button onClick={handleSendMessage} className="flex-1 py-3 font-semibold text-white bg-green-500 rounded-xl" disabled={sendingMsg}>{sendingMsg ? '...' : 'Enviar'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNewContactModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white rounded-ios p-6 max-w-sm w-full shadow-2xl space-y-6">
+            <h3 className="text-xl font-bold text-gray-900 border-b border-gray-100 pb-3">Adicionar Novo Contato</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1 uppercase">Nome Completo</label>
+                <input
+                  type="text"
+                  value={newContactData.chatname}
+                  onChange={e => setNewContactData({ ...newContactData, chatname: e.target.value })}
+                  className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white focus:border-ios-primary focus:ring-4 focus:ring-ios-primary/10 outline-none transition-all font-medium"
+                  placeholder="Nome do responsável..."
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1 uppercase">Celular (WhatsApp)</label>
+                <input
+                  type="tel"
+                  value={newContactData.phone}
+                  onChange={e => setNewContactData({ ...newContactData, phone: formatPhone(e.target.value) })}
+                  className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white focus:border-ios-primary focus:ring-4 focus:ring-ios-primary/10 outline-none transition-all font-medium"
+                  placeholder="(00) 00000-0000"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setShowNewContactModal(false)}
+                className="flex-1 py-3 font-bold text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+                disabled={loadingContacts}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveNewContact}
+                disabled={loadingContacts}
+                className="flex-1 py-3 font-bold text-white bg-green-500 rounded-xl shadow-lg shadow-green-500/20 hover:bg-green-600 transition-all flex items-center justify-center gap-2"
+              >
+                {loadingContacts ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Salvar e Enviar'}
+              </button>
             </div>
           </div>
         </div>

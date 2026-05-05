@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { ChatTag, Message, User, Unidade } from '../types';
 import { AppointmentModal } from './AppointmentModal';
+import { toast } from 'sonner';
 
 interface ChatWindowProps {
   chat: ChatTag;
@@ -235,9 +236,8 @@ const AudioPlayer: React.FC<{ src: string; isOwn: boolean; senderPhoto: string }
 
 // --- PIX MESSAGE COMPONENT ---
 const PixCard: React.FC<{ pixKey: string; keyType: string; merchantName?: string; isOwn: boolean }> = ({ pixKey, keyType, merchantName, isOwn }) => {
-    const handleCopy = () => {
         navigator.clipboard.writeText(pixKey);
-        alert('Chave PIX copiada!');
+        toast.success('Chave PIX copiada!');
     };
 
     return (
@@ -696,7 +696,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
   const handleSendSchedulingRequest = async () => {
     setIsQuickActionsOpen(false);
     if (!chat.phone) {
-        alert("Este contato não possui número de telefone.");
+        toast.error("Este contato não possui número de telefone.");
         return;
     }
 
@@ -735,18 +735,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
         if (!response.ok) {
             const errorText = await response.text();
             console.error("Z-API Scheduling Error:", errorText);
-            alert("Erro ao enviar solicitação de agendamento.");
+            toast.error("Erro ao enviar solicitação de agendamento.");
         }
     } catch (error) {
         console.error("Failed to send scheduling request", error);
-        alert("Falha de conexão.");
+        toast.error("Falha de conexão.");
     }
   };
 
   const handleSendPrefeituraRequest = async () => {
       setIsQuickActionsOpen(false);
       if (!chat.phone) {
-          alert("Este contato não possui número de telefone.");
+          toast.error("Este contato não possui número de telefone.");
           return;
       }
 
@@ -800,7 +800,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
 
       } catch (error) {
           console.error("Failed to send prefeitura requests", error);
-          alert("Erro ao enviar mensagens.");
+          toast.error("Erro ao enviar mensagens.");
       }
   };
 
@@ -812,7 +812,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
 
   const handleSendSchedulingLink = async () => {
       if (!selectedUnitForLink) {
-          alert("Selecione uma unidade.");
+          toast.error("Selecione uma unidade.");
           return;
       }
       
@@ -861,18 +861,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
 
         if (!response.ok) {
             console.error("API Error sending link", await response.text());
-            alert("Erro ao enviar link.");
+            toast.error("Erro ao enviar link.");
         }
       } catch (e) {
           console.error(e);
-          alert("Erro de conexão.");
+          toast.error("Erro de conexão.");
       }
   };
 
   const handleSendPix = async () => {
     setIsQuickActionsOpen(false);
     if (!chat.phone) {
-        alert("Este contato não possui número de telefone.");
+        toast.error("Este contato não possui número de telefone.");
         return;
     }
 
@@ -919,18 +919,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
         if (!response.ok) {
             const errorText = await response.text();
             console.error("Z-API PIX Error:", errorText);
-            alert("Erro ao enviar PIX.");
+            toast.error("Erro ao enviar PIX.");
         }
     } catch (error) {
         console.error("Failed to send PIX", error);
-        alert("Falha de conexão.");
+        toast.error("Falha de conexão.");
     }
   };
 
   const handleSendAddress = async () => {
     setIsQuickActionsOpen(false);
     if (!chat.phone) {
-        alert("Este contato não possui número de telefone.");
+        toast.error("Este contato não possui número de telefone.");
         return;
     }
 
@@ -969,11 +969,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
         if (!response.ok) {
             const errorText = await response.text();
             console.error("Z-API Address Error:", errorText);
-            alert("Erro ao enviar endereço.");
+            toast.error("Erro ao enviar endereço.");
         }
     } catch (error) {
         console.error("Failed to send address", error);
-        alert("Falha de conexão.");
+        toast.error("Falha de conexão.");
     }
   };
 
@@ -994,7 +994,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
 
     } catch (err) {
       console.error("Error updating tag:", err);
-      alert("Não foi possível atualizar o atendimento. Tente novamente.");
+      toast.error("Não foi possível atualizar o atendimento. Tente novamente.");
     } finally {
       setUpdatingChat(false);
     }
@@ -1035,7 +1035,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
 
     } catch (err) {
         console.error("Error accessing microphone:", err);
-        alert("Erro ao acessar microfone. Verifique as permissões.");
+        toast.error("Erro ao acessar microfone. Verifique as permissões.");
     }
   };
 
@@ -1109,7 +1109,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
 
     } catch (error) {
         console.error("Error uploading/sending audio:", error);
-        alert("Falha ao enviar áudio.");
+        toast.error("Falha ao enviar áudio.");
     } finally {
         setIsUploading(false);
     }
@@ -1126,7 +1126,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
 
   const handleEditClick = (msg: Message) => {
       if (!msg.message_id) {
-          alert("Não é possível editar esta mensagem ainda (ID não gerado).");
+          toast.error("Não é possível editar esta mensagem ainda (ID não gerado).");
           return;
       }
       setEditingMessageId(msg.id);
@@ -1170,7 +1170,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
 
       } catch (error) {
           console.error("Erro ao editar:", error);
-          alert("Falha ao editar mensagem. Revertendo...");
+          toast.error("Falha ao editar mensagem. Revertendo...");
           // Revert optimistic update
           setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, text_message: oldContent } : m));
       }
@@ -1214,7 +1214,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
 
       } catch (error) {
           console.error("Erro ao apagar:", error);
-          alert("Erro ao apagar mensagem.");
+          toast.error("Erro ao apagar mensagem.");
           setMessages(previousMessages);
       } finally {
           setMsgToDelete(null);
@@ -1239,7 +1239,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!taskForm.title || !taskForm.dueDate || !taskForm.responsibleId) {
-      alert("Preencha os campos obrigatórios.");
+      toast.error("Preencha os campos obrigatórios.");
       return;
     }
 
@@ -1259,12 +1259,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
 
       if (error) throw error;
       
-      alert("Tarefa criada com sucesso!");
+      toast.success("Tarefa criada com sucesso!");
       setTaskModalOpen(false);
 
     } catch (err: any) {
       console.error("Error creating task:", err);
-      alert(`Erro ao criar tarefa: ${err.message}`);
+      toast.error(`Erro ao criar tarefa: ${err.message}`);
     }
   };
 
@@ -1331,12 +1331,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
 
           if(!response.ok) {
               console.error("Failed to send contact via Z-API", await response.text());
-              alert("Erro ao enviar contato.");
+              toast.error("Erro ao enviar contato.");
           }
 
       } catch(err) {
           console.error(err);
-          alert("Falha de conexão.");
+          toast.error("Falha de conexão.");
       }
   };
 
@@ -1373,7 +1373,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
     if (!file) return;
 
     if (!chat.phone) {
-      alert("Erro: Este contato não possui um número de telefone associado.");
+      toast.error("Erro: Este contato não possui um número de telefone associado.");
       return;
     }
 
@@ -1397,7 +1397,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
             e.preventDefault(); // Prevent text paste behavior for images
 
             if (!chat.phone) {
-                alert("Erro: Este contato não possui um número de telefone associado.");
+                toast.error("Erro: Este contato não possui um número de telefone associado.");
                 return;
             }
 
@@ -1467,12 +1467,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
         handleCancelPreview();
       } else {
         console.error("Z-API Image Upload Error", await response.text());
-        alert("Erro ao enviar imagem. Verifique o console.");
+        toast.error("Erro ao enviar imagem. Verifique o console.");
       }
 
     } catch (error: any) {
       console.error("Error sending image:", error);
-      alert("Falha ao enviar imagem: " + (error.message || "Erro desconhecido"));
+      toast.error("Falha ao enviar imagem: " + (error.message || "Erro desconhecido"));
     } finally {
       setIsUploading(false);
     }
@@ -1490,7 +1490,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
       if (!files || files.length === 0) return;
 
       if (!chat.phone) {
-          alert("Erro: Este contato não possui um número de telefone associado.");
+          toast.error("Erro: Este contato não possui um número de telefone associado.");
           return;
       }
 
@@ -1574,7 +1574,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
 
       } catch (error: any) {
           console.error("Error sending documents:", error);
-          alert("Falha ao enviar documentos: " + (error.message || "Erro desconhecido"));
+          toast.error("Falha ao enviar documentos: " + (error.message || "Erro desconhecido"));
       } finally {
           setIsUploading(false);
       }

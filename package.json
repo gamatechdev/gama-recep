@@ -11,8 +11,10 @@
   "dependencies": {
     "@google/genai": "^1.30.0",
     "@supabase/supabase-js": "^2.84.0",
+    "lucide-react": "^1.14.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "sonner": "^2.0.7"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

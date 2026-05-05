@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../services/supabaseClient';
 import { Colaborador, Unidade, ChatTag, User } from '../types';
+import { toast } from 'sonner';
 
 const EXAMES_LIST = [
     { "idx": 0, "id": 447, "nome": "Avaliação Clínica" },
@@ -299,7 +300,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ onClose, cur
             .select('*');
 
         if (error || !data || data.length === 0) {
-            alert("Nenhum contato encontrado.");
+            toast.error("Nenhum contato encontrado.");
             resetForm();
             if (onClose) onClose();
             return;
@@ -346,14 +347,14 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ onClose, cur
             });
 
             if (response.ok) {
-                alert("Notificação enviada com sucesso!");
+                toast.success("Notificação enviada com sucesso!");
             } else {
-                alert("Erro ao enviar notificação.");
+                toast.error("Erro ao enviar notificação.");
             }
 
         } catch (e) {
             console.error("API Send Error", e);
-            alert("Erro de conexão ao enviar mensagem.");
+            toast.error("Erro de conexão ao enviar mensagem.");
         } finally {
             setSendingMsg(false);
             setShowConfirmSendModal(false);

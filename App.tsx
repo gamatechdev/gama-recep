@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import Auth from './components/Auth';
@@ -11,6 +10,7 @@ import ServiceScreen from './components/ServiceScreen';
 import StatsScreen from './components/StatsScreen';
 import AsoDocument from './components/AsoDocument';
 import { Agendamento } from './types';
+import { Toaster } from 'sonner';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
@@ -105,6 +105,7 @@ const App: React.FC = () => {
     }} />;
   }
 
+
   return (
     <Layout 
         activeTab={activeTab} 
@@ -113,6 +114,7 @@ const App: React.FC = () => {
         userId={session.user.id} 
     >
       {renderContent()}
+      <Toaster richColors position="top-right" />
     </Layout>
   );
 };

@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { transcribeAudio } from '../services/geminiService';
+import { toast } from 'sonner';
 
 interface AudioRecorderProps {
   onTranscriptionComplete: (text: string) => void;
@@ -32,7 +33,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscriptionComplete }
             const text = await transcribeAudio(audioBlob);
             onTranscriptionComplete(text);
         } catch (error) {
-            alert("Erro ao transcrever áudio.");
+            toast.error("Erro ao transcrever áudio.");
         } finally {
             setIsProcessing(false);
             // Stop all tracks to release microphone
@@ -44,7 +45,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscriptionComplete }
       setIsRecording(true);
     } catch (err) {
       console.error("Error accessing microphone:", err);
-      alert("Erro ao acessar microfone. Verifique as permissões.");
+      toast.error("Erro ao acessar microfone. Verifique as permissões.");
     }
   };
 

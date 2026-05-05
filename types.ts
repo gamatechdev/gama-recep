@@ -22,6 +22,7 @@ export interface Colaborador {
   data_nascimento: string;
   sexo?: string;
   setor?: string;
+  setorid?: number;
   unidade?: number;
   cargo?: number;
   // Join fields
@@ -69,6 +70,7 @@ export interface Agendamento {
   enviado_empresa?: boolean | null; // Indica se foi agendado pela empresa via sistema
   aso_qtd_cobrar?: number;
   rac_qtd_cobrar?: number;
+  prontuario_id?: string[] | null;
 }
 
 export interface Cargo {
