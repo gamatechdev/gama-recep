@@ -4,6 +4,24 @@ export interface ChatTag {
   chatname?: string;
   senderphoto?: string;
 }
+
+export interface Message {
+  id: string | number;
+  message_id?: string;
+  chatname: string;
+  text_message: string;
+  status?: string;
+  criado_em: string;
+  enviado_por?: string;
+  is_img?: boolean;
+  img_path?: string;
+  video_path?: string;
+  audio_url?: string;
+  pdf_path?: string;
+  sender_lid?: string;
+  raw_payload?: any;
+}
+
 export interface User {
   id: number;
   username: string;

@@ -236,9 +236,11 @@ const AudioPlayer: React.FC<{ src: string; isOwn: boolean; senderPhoto: string }
 
 // --- PIX MESSAGE COMPONENT ---
 const PixCard: React.FC<{ pixKey: string; keyType: string; merchantName?: string; isOwn: boolean }> = ({ pixKey, keyType, merchantName, isOwn }) => {
+    const handleCopy = () => {
         navigator.clipboard.writeText(pixKey);
         toast.success('Chave PIX copiada!');
     };
+
 
     return (
         <div className={`p-4 rounded-xl max-w-sm ${isOwn ? 'bg-white/10 text-white' : 'bg-slate-50 dark:bg-[#1c1c1e] text-slate-800 dark:text-white'}`}>
@@ -343,8 +345,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ chat, currentUser, onCha
   const recordingTimerRef = useRef<number | null>(null);
 
   // Message Action States
-  const [activeMessageMenuId, setActiveMessageMenuId] = useState<string | null>(null);
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [activeMessageMenuId, setActiveMessageMenuId] = useState<string | number | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | number | null>(null);
   const [editContent, setEditContent] = useState('');
   const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null); // State for replying
   
