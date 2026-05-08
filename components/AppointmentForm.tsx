@@ -2,9 +2,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Colaborador, Unidade, Agendamento } from '../types';
-import { SearchableSelect } from './ui/SearchableSelect';
-import { Search, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+// Importação de componentes de UI reutilizáveis
+import { Button } from './Button';
+// Importação de ícones do Lucide React para melhorar a UI
+import { ChevronDown, ImageIcon, Plus, Check, Trash2, Download, X, File } from 'lucide-react';
+// Importação do mapeamento entre exames e formulários de prontuário
+import { EXAM_TO_FORMULARIO_MAP, FORMULARIOS_FIXOS } from '../constants/formularioMap';
 
 const EXAMES_LIST = [
   { "idx": 0, "id": 447, "nome": "Avaliação Clínica" },
@@ -343,6 +346,25 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         setPrioridade(initialAppointment.prioridade);
       }
 
+      if (initialAppointment.foto_obs) {
+        setCurrentImageUrl(initialAppointment.foto_obs);
+      }
+
+      if ((initialAppointment as any).formularios_snapshot && (initialAppointment as any).formularios_snapshot.length > 0) {
+        // Agendamento interno: carrega os formulários salvos normalmente
+        setSelectedFormularios((initialAppointment as any).formularios_snapshot);
+      } else if (initialAppointment.exames_snapshot && initialAppointment.exames_snapshot.length > 0) {
+        // Agendamento externo (ex: Gama Clientes): deriva os formulários a partir dos exames
+        // mapeando cada exame para seu formulário correspondente
+        const formulariosDerived = initialAppointment.exames_snapshot
+          .map((exame: string) => EXAM_TO_FORMULARIO_MAP[exame]) // Busca o formulário correspondente
+          .filter(Boolean); // Remove os exames sem mapeamento (undefined)
+
+        // Garante que os formulários fixos estejam sempre presentes
+        // e que não haja valores duplicados com Set
+        setSelectedFormularios([...new Set([...FORMULARIOS_FIXOS, ...formulariosDerived])]);
+      }
+
       if (initialAppointment.valor && initialAppointment.valor > 0) {
         setValorAvulso(initialAppointment.valor.toString());
       }
@@ -396,14 +418,32 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   };
 
   const toggleExam = (examName: string) => {
+    // Verifica se existe um formulário de prontuário mapeado para este exame
+    const formularioAssociado = EXAM_TO_FORMULARIO_MAP[examName];
+
     if (selectedExams.includes(examName)) {
-      setSelectedExams(selectedExams.filter(e => e !== examName));
+      // Remove o exame da lista de exames selecionados
+      setSelectedExams(prev => prev.filter(e => e !== examName));
+
+      // Se houver formulário associado, remove-o também — a menos que seja fixo
+      if (formularioAssociado && !FORMULARIOS_FIXOS.includes(formularioAssociado)) {
+        setSelectedFormularios(prev => prev.filter(f => f !== formularioAssociado));
+      }
     } else {
-      setSelectedExams([...selectedExams, examName]);
+      // Adiciona o exame à lista de exames selecionados
+      setSelectedExams(prev => [...prev, examName]);
+
+      // Se houver formulário associado e ainda não estiver marcado, adiciona-o
+      if (formularioAssociado && !selectedFormularios.includes(formularioAssociado)) {
+        setSelectedFormularios(prev => [...prev, formularioAssociado]);
+      }
     }
   };
 
   const toggleFormulario = (formValue: string) => {
+    // Formulários fixos (ex: Ficha Clínica) não podem ser removidos manualmente
+    if (FORMULARIOS_FIXOS.includes(formValue)) return;
+
     if (selectedFormularios.includes(formValue)) {
       setSelectedFormularios(selectedFormularios.filter(f => f !== formValue));
     } else {
