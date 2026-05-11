@@ -17,6 +17,9 @@ export const EXAM_TO_FORMULARIO_MAP: Record<string, string> = {
   "Avaliação Psicossocial":  "AVALIACAO_PSICOSSOCIAL_SIMPLES",
   "Avaliação Psicológica":   "AVALIACAO_PSICOSSOCIAL_SIMPLES",
   "Questionário Epilepsia":  "QUESTIONARIO_EPILEPSIA",
+  "Avaliação Vocal":         "AVALIACAO_VOCAL",
+  "Teste Romberg":           "TESTE_ROMBERG",
+  "Escala de Epworth":       "EPWORTH"
 };
 
 // Formulários fixos: nunca serão removidos pela sincronização automática,
