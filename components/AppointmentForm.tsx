@@ -2,9 +2,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Colaborador, Unidade, Agendamento } from '../types';
+// Importação de componentes de UI reutilizáveis
+import { Button } from './Button';
 import { SearchableSelect } from './ui/SearchableSelect';
-import { Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+// Importação de ícones do Lucide React para melhorar a UI
+import { ChevronDown, ImageIcon, Plus, Check, Trash2, Download, X, File, Loader2, Search } from 'lucide-react';
+// Importação do mapeamento entre exames e formulários de prontuário
+import { EXAM_TO_FORMULARIO_MAP, FORMULARIOS_FIXOS } from '../constants/formularioMap';
 
 const EXAMES_LIST = [
   { "idx": 0, "id": 447, "nome": "Avaliação Clínica" },
@@ -21,7 +26,6 @@ const EXAMES_LIST = [
   { "idx": 11, "id": 458, "nome": "Glicemia em Jejum" },
   { "idx": 12, "id": 459, "nome": "EPF (parasitológico fezes)" },
   { "idx": 13, "id": 460, "nome": "EAS (urina)" },
-  { "idx": 14, "id": 461, "nome": "Grupo Sanguíneo + Fator RH" },
   { "idx": 15, "id": 462, "nome": "Gama GT" },
   { "idx": 16, "id": 463, "nome": "TGO / TGP" },
   { "idx": 17, "id": 464, "nome": "Ácido Trans. Muconico" },
@@ -58,7 +62,8 @@ const EXAMES_LIST = [
   { "idx": 48, "id": 495, "nome": "Teste Romberg" },
   { "idx": 49, "id": 496, "nome": "Exame Toxicológico Urina" },
   { "idx": 50, "id": 497, "nome": "Higidez" },
-  { "idx": 51, "id": 498, "nome": "Grupo Sanguíneo" }
+  { "idx": 51, "id": 498, "nome": "Grupo Sanguíneo" },
+  { "idx": 52, "id": 499, "nome": "Escala de Epworth" }
 ];
 
 const FORMULARIOS_OPTIONS = [
@@ -67,7 +72,10 @@ const FORMULARIOS_OPTIONS = [
   { label: "Audiometria", value: "AUDIOMETRIA" },
   { label: "Acuidade Visual", value: "ACUIDADE_VISUAL" },
   { label: "Avaliação Psicossocial", value: "AVALIACAO_PSICOSSOCIAL_SIMPLES" },
-  { label: "Questionário de Epilepsia", value: "QUESTIONARIO_EPILEPSIA" }
+  { label: "Questionário de Epilepsia", value: "QUESTIONARIO_EPILEPSIA" },
+  { label: "Avaliação Vocal", value: "AVALIACAO_VOCAL" },
+  { label: "Teste Romberg", value: "TESTE_ROMBERG" },
+  { label: "Escala de Epworth", value: "EPWORTH" }
 ];
 
 interface ChatTag {
@@ -214,6 +222,10 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   // New Appointment Fields
   const [obsAgendamento, setObsAgendamento] = useState('');
   const [prioridade, setPrioridade] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [currentImageUrl, setCurrentImageUrl] = useState<string>('');
+  const [imagePreview, setImagePreview] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // New Company (Unit) Modal State
   const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);
@@ -343,6 +355,25 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         setPrioridade(initialAppointment.prioridade);
       }
 
+      if ((initialAppointment as any).foto_obs) {
+        setCurrentImageUrl((initialAppointment as any).foto_obs);
+      }
+
+      if ((initialAppointment as any).formularios_snapshot && (initialAppointment as any).formularios_snapshot.length > 0) {
+        // Agendamento interno: carrega os formulários salvos normalmente
+        setSelectedFormularios((initialAppointment as any).formularios_snapshot);
+      } else if (initialAppointment.exames_snapshot && initialAppointment.exames_snapshot.length > 0) {
+        // Agendamento externo (ex: Gama Clientes): deriva os formulários a partir dos exames
+        // mapeando cada exame para seu formulário correspondente
+        const formulariosDerived = initialAppointment.exames_snapshot
+          .map((exame: string) => EXAM_TO_FORMULARIO_MAP[exame]) // Busca o formulário correspondente
+          .filter(Boolean); // Remove os exames sem mapeamento (undefined)
+
+        // Garante que os formulários fixos estejam sempre presentes
+        // e que não haja valores duplicados com Set
+        setSelectedFormularios([...new Set([...FORMULARIOS_FIXOS, ...formulariosDerived])]);
+      }
+
       if (initialAppointment.valor && initialAppointment.valor > 0) {
         setValorAvulso(initialAppointment.valor.toString());
       }
@@ -396,14 +427,47 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   };
 
   const toggleExam = (examName: string) => {
+    // Verifica se existe um formulário de prontuário mapeado para este exame
+    const formularioAssociado = EXAM_TO_FORMULARIO_MAP[examName];
+
     if (selectedExams.includes(examName)) {
-      setSelectedExams(selectedExams.filter(e => e !== examName));
+      // Remove o exame da lista de exames selecionados
+      setSelectedExams(prev => prev.filter(e => e !== examName));
+
+      // Se houver formulário associado, remove-o também — a menos que seja fixo
+      if (formularioAssociado && !FORMULARIOS_FIXOS.includes(formularioAssociado)) {
+        setSelectedFormularios(prev => prev.filter(f => f !== formularioAssociado));
+      }
     } else {
-      setSelectedExams([...selectedExams, examName]);
+      // Adiciona o exame à lista de exames selecionados
+      setSelectedExams(prev => [...prev, examName]);
+
+      // Se houver formulário associado e ainda não estiver marcado, adiciona-o
+      if (formularioAssociado && !selectedFormularios.includes(formularioAssociado)) {
+        setSelectedFormularios(prev => [...prev, formularioAssociado]);
+      }
     }
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    setImagePreview('');
+    setCurrentImageUrl('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const toggleFormulario = (formValue: string) => {
+    // Formulários fixos (ex: Ficha Clínica) não podem ser removidos manualmente
+    if (FORMULARIOS_FIXOS.includes(formValue)) return;
+
     if (selectedFormularios.includes(formValue)) {
       setSelectedFormularios(selectedFormularios.filter(f => f !== formValue));
     } else {
@@ -532,6 +596,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     setColabSearchTerm(''); setUnitSearchTerm('');
     setAppointmentData(prev => ({ ...prev, unidade: '' }));
     setObsAgendamento(''); setPrioridade(false);
+    setImageFile(null); setCurrentImageUrl(''); setImagePreview('');
     setSelectedSetorName('');
     setSelectedSetorId(null);
     setIsAvulso(false); setValorAvulso(''); setMetodoPagamento('Pix'); setOutroMetodoPagamento('');
@@ -577,6 +642,9 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   };
 
   const generatePDF = async (payload: any) => {
+    console.log("--- INICIANDO GERAÇÃO DE PDF ---");
+    console.log("Payload:", payload);
+    toast.info("Iniciando geração de PDF na API local...");
     try {
       const response = await fetch("https://ficha-api.vercel.app/prontuarios", {
         method: "POST",
@@ -588,6 +656,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       return data.publicUrl || data.url || data.pdf_url || data.link || (typeof data === 'string' && data.startsWith('http') ? data : null);
     } catch (error) {
       console.error("PDF Error:", error);
+      toast.error("Erro ao conectar com a API local (Porta 3002). Verifique se o terminal está rodando.");
       return null;
     }
   };
@@ -955,6 +1024,29 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         return { consultorio, salaexames, salacoleta, audiometria, raiox };
       };
 
+      // --- Lógica de Upload de Imagem ---
+      let finalFotoObs = currentImageUrl;
+      if (imageFile) {
+        // Gera um nome único para o arquivo
+        const fileExt = imageFile.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `foto_obs/${fileName}`;
+
+        // Faz o upload para o bucket 'documents'
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(filePath, imageFile);
+
+        if (uploadError) throw uploadError;
+
+        // Obtém a URL pública da imagem salva
+        const { data: { publicUrl } } = supabase.storage
+          .from('documents')
+          .getPublicUrl(filePath);
+        
+        finalFotoObs = publicUrl;
+      }
+
       // Calcula as salas baseado nos exames selecionados
       const salasCalculadas = calcularSalasPorExames(selectedExams);
 
@@ -980,6 +1072,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           aso_qtd_cobrar: asoQtdCobrar,
           rac_qtd_cobrar: racQtdCobrar,
           prontuario_id: selectedFormularios,
+          foto_obs: finalFotoObs || null,
           // Salas recalculadas automaticamente baseado nos exames selecionados
           ...salasCalculadas,
         };
@@ -1007,6 +1100,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           aso_qtd_cobrar: asoQtdCobrar,
           rac_qtd_cobrar: racQtdCobrar,
           prontuario_id: selectedFormularios,
+          foto_obs: finalFotoObs || null,
           // Salas calculadas automaticamente baseado nos exames selecionados
           ...salasCalculadas,
         };
@@ -1259,7 +1353,31 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
               </div>
             </div>
             <div className="flex flex-col md:flex-row gap-6">
-              <div className="w-full"><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Obs. Agendamento</label><textarea rows={2} value={obsAgendamento} onChange={(e) => setObsAgendamento(e.target.value)} className="w-full p-4 rounded-xl bg-yellow-50 border-transparent focus:bg-white outline-none resize-none" /></div>
+              <div className="w-full">
+                <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Obs. Agendamento</label>
+                <div className="flex items-start gap-2">
+                  <textarea rows={2} value={obsAgendamento} onChange={(e) => setObsAgendamento(e.target.value)} className="w-full p-4 rounded-xl bg-yellow-50 border-transparent focus:bg-white outline-none resize-none" />
+                  <div className="flex flex-col items-center gap-2 mt-1">
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="w-12 h-12 flex-shrink-0 bg-yellow-50 hover:bg-yellow-100 text-yellow-600 rounded-xl flex items-center justify-center transition-colors relative" title="Anexar Imagem">
+                      <ImageIcon size={20} />
+                      {(imagePreview || currentImageUrl) && (
+                        <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full border-2 border-white p-0.5">
+                          <Check size={10} className="text-white" strokeWidth={4} />
+                        </div>
+                      )}
+                    </button>
+                    <input type="file" ref={fileInputRef} onChange={handleImageChange} accept="image/*" className="hidden" />
+                  </div>
+                </div>
+                {(imagePreview || currentImageUrl) && (
+                  <div className="mt-2 relative inline-block">
+                    <img src={imagePreview || currentImageUrl} alt="Anexo" className="h-20 w-20 object-cover rounded-lg border border-gray-200 shadow-sm" />
+                    <button type="button" onClick={removeImage} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 shadow-md">
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className="md:w-64"><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Prioridade</label><div onClick={() => setPrioridade(!prioridade)} className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer ${prioridade ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-transparent'}`}><div className={`w-6 h-6 rounded-md border flex items-center justify-center ${prioridade ? 'bg-red-500 border-red-500' : 'bg-white border-gray-300'}`}>{prioridade && <span className="text-white font-bold">✓</span>}</div><span className="text-sm font-bold text-gray-500">Marcar Prioridade</span></div></div>
             </div>
           </div>

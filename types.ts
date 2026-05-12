@@ -82,6 +82,7 @@ export interface Agendamento {
   aso_feito?: boolean; // Novo campo para controle de status do ASO
   aso_url?: string | null; // URL do PDF do ASO
   obs_agendamento?: string | null;
+  foto_obs?: string | null; // URL da imagem de observação
   prioridade?: boolean;
   valor?: number | null; // Valor para lançamentos avulsos
   metodo_pagamento?: string | null; // Metodo de pagamento para avulsos

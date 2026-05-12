@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { supabase } from '../services/supabaseClient';
+import { supabase } from '../supabaseClient';
 import { Colaborador, Unidade, ChatTag, User } from '../types';
 import { toast } from 'sonner';
 
@@ -20,7 +20,6 @@ const EXAMES_LIST = [
     { "idx": 11, "id": 458, "nome": "Glicemia em Jejum" },
     { "idx": 12, "id": 459, "nome": "EPF (parasitológico fezes)" },
     { "idx": 13, "id": 460, "nome": "EAS (urina)" },
-    { "idx": 14, "id": 461, "nome": "Grupo Sanguíneo + Fator RH" },
     { "idx": 15, "id": 462, "nome": "Gama GT" },
     { "idx": 16, "id": 463, "nome": "TGO / TGP" },
     { "idx": 17, "id": 464, "nome": "Ácido Trans. Muconico" },

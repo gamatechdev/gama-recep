@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Agendamento } from '../types';
 import { toast } from 'sonner';
 import { supabase } from '@/supabaseClient';
+import { EXAM_TO_FORMULARIO_MAP, FORMULARIOS_FIXOS } from '../constants/formularioMap';
 
 // Copied from AppointmentForm to ensure consistency for export columns
 const EXAMES_LIST_EXPORT = [
@@ -113,6 +114,9 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
     // Modal Selection State
     const [uploadModalAppointmentId, setUploadModalAppointmentId] = useState<number | null>(null);
     const [showProcedureListModal, setShowProcedureListModal] = useState(false);
+
+    // Estado para controlar qual agendamento está gerando a ficha (exibe spinner no botão)
+    const [generatingFichaId, setGeneratingFichaId] = useState<number | null>(null);
 
     useEffect(() => {
         // Debounce search or fetch agenda
@@ -481,6 +485,173 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
     const openFicha = (url: string | null) => {
         if (url) window.open(url, '_blank');
         else toast.error("Ficha não disponível.");
+    };
+
+    // ------------------------------------------------------------------
+    // Verifica se a URL da ficha é válida (não é nula, vazia ou placeholder)
+    // Retorna true se a ficha já foi gerada corretamente
+    // ------------------------------------------------------------------
+    const isFichaValida = (url: string | null | undefined): boolean => {
+        if (!url) return false;               // Nula ou vazia
+        if (url.includes('example.com')) return false; // URL placeholder gerada por erro
+        if (!url.startsWith('http')) return false; // Qualquer coisa que não seja uma URL
+        return true;
+    };
+
+    // ------------------------------------------------------------------
+    // Função principal de geração rápida da Ficha Clínica direto pela lista
+    // Equivale ao que o botão "Atualizar" faz internamente, mas sem abrir o formulário
+    // ------------------------------------------------------------------
+    const handleQuickGenerateFicha = async (apt: AgendamentoComProntuarios) => {
+        console.log('%c--- [QUICK FICHA] INÍCIO DA GERAÇÃO RÁPIDA ---', 'color: #04a7bd; font-weight: bold; font-size: 14px');
+        console.log('[QUICK FICHA] Agendamento recebido:', apt);
+
+        // Marca este agendamento como "em geração" para exibir o spinner no botão
+        setGeneratingFichaId(apt.id);
+
+        try {
+            // ----------------------------------------------------------
+            // PASSO 1: Montar a lista de formulários baseado nos exames
+            // Começa com a Ficha Clínica (sempre fixa) e adiciona os
+            // formulários mapeados a partir do exames_snapshot do paciente
+            // ----------------------------------------------------------
+            const exames = apt.exames_snapshot || [];
+            console.log('[QUICK FICHA] PASSO 1 - Exames do snapshot:', exames);
+
+            const formulariosDerivados = new Set<string>(FORMULARIOS_FIXOS); // Sempre inclui FICHA_CLINICA
+            exames.forEach(exame => {
+                const formularioCodigo = EXAM_TO_FORMULARIO_MAP[exame];
+                if (formularioCodigo) {
+                    formulariosDerivados.add(formularioCodigo);
+                    console.log(`[QUICK FICHA] Mapeamento encontrado: "${exame}" -> "${formularioCodigo}"`);
+                } else {
+                    console.log(`[QUICK FICHA] Sem mapeamento para: "${exame}" (sem formulário adicional)`);
+                }
+            });
+
+            const formulariosList = Array.from(formulariosDerivados);
+            console.log('[QUICK FICHA] PASSO 1 - Formulários finais a gerar:', formulariosList);
+
+            // ----------------------------------------------------------
+            // PASSO 2: Coletar dados do colaborador e da unidade
+            // Os dados já vêm via JOIN no fetchAgenda (colaboradores, unidades)
+            // ----------------------------------------------------------
+            const colab = apt.colaboradores;
+            const unidade = apt.unidades;
+
+            console.log('[QUICK FICHA] PASSO 2 - Dados do colaborador:', colab);
+            console.log('[QUICK FICHA] PASSO 2 - Dados da unidade:', unidade);
+
+            if (!colab) {
+                console.error('[QUICK FICHA] ERRO: Dados do colaborador não disponíveis no agendamento!');
+                toast.error('Erro: dados do colaborador não carregados. Recarregue a página.');
+                return;
+            }
+
+            // ----------------------------------------------------------
+            // PASSO 3: Ajuste de exames para o PDF
+            // A API espera "Higidez Mental" em vez de "Higidez" (mapeamento interno da API)
+            // ----------------------------------------------------------
+            const examesParaPdf = exames.map(e => e === 'Higidez' ? 'Higidez Mental' : e);
+            console.log('[QUICK FICHA] PASSO 3 - Exames ajustados para PDF:', examesParaPdf);
+
+            // ----------------------------------------------------------
+            // PASSO 4: Montar o payload que será enviado para a API local 3002
+            // ----------------------------------------------------------
+            const payload = {
+                agendamentoId: `QUICK-${apt.id}-${Date.now()}`, // ID único para log na API
+                empresa: unidade?.nome_unidade || 'Matriz',
+                nome: colab.nome || 'Não informado',
+                dataExame: apt.data_atendimento,
+                funcao: colab.setor || 'Não informado',
+                cpf: colab.cpf || '',
+                dataNascimento: colab.data_nascimento || '',
+                sexo: colab.sexo || 'M',
+                tipoExame: apt.tipo || 'Admissional',
+                setor: colab.setor || 'Operacional',
+                tipo_exame: [apt.tipo || 'Admissional'],
+                exames_requisitados: examesParaPdf,
+                observacoesClinica: '',
+                observacoesLaboratorial: '',
+                observacoes: '',
+                formularios: formulariosList
+            };
+
+            console.log('%c[QUICK FICHA] PASSO 4 - PAYLOAD COMPLETO enviado para http://localhost:3002/prontuarios:', 'color: orange; font-weight: bold');
+            console.log(JSON.stringify(payload, null, 2));
+
+            // ----------------------------------------------------------
+            // PASSO 5: Chamar a API local de geração de PDF
+            // ----------------------------------------------------------
+            console.log('[QUICK FICHA] PASSO 5 - Fazendo requisição fetch para http://localhost:3002/prontuarios...');
+            toast.info(`Gerando ficha para ${colab.nome}...`);
+
+            const response = await fetch('http://localhost:3002/prontuarios', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            console.log('[QUICK FICHA] PASSO 5 - Status HTTP da resposta:', response.status, response.statusText);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[QUICK FICHA] ERRO na API - Resposta não OK:', errorText);
+                throw new Error(`API retornou status ${response.status}: ${errorText}`);
+            }
+
+            const data = await response.json();
+            console.log('[QUICK FICHA] PASSO 5 - Resposta JSON da API:', data);
+
+            // Extrai a URL do PDF de qualquer campo possível que a API possa retornar
+            const pdfUrl: string | null =
+                data.publicUrl ||
+                data.url ||
+                data.pdf_url ||
+                data.link ||
+                (typeof data === 'string' && data.startsWith('http') ? data : null);
+
+            console.log('[QUICK FICHA] PASSO 5 - URL do PDF extraída:', pdfUrl);
+
+            if (!pdfUrl) {
+                console.error('[QUICK FICHA] ERRO: A API respondeu OK mas não retornou nenhuma URL de PDF!');
+                console.error('[QUICK FICHA] Campos disponíveis na resposta:', Object.keys(data));
+                throw new Error('API não retornou uma URL de PDF válida.');
+            }
+
+            // ----------------------------------------------------------
+            // PASSO 6: Salvar a URL gerada no Supabase e abrir o PDF
+            // ----------------------------------------------------------
+            console.log('[QUICK FICHA] PASSO 6 - Salvando ficha_url no Supabase para agendamento ID:', apt.id);
+
+            const { error: updateError } = await supabase
+                .from('agendamentos')
+                .update({ ficha_url: pdfUrl })
+                .eq('id', apt.id);
+
+            if (updateError) {
+                console.error('[QUICK FICHA] ERRO ao salvar no Supabase:', updateError);
+                toast.error('Ficha gerada mas não foi possível salvar o link. Verifique o console.');
+            } else {
+                console.log('[QUICK FICHA] PASSO 6 - ficha_url salva com sucesso no banco!');
+                // Atualiza a lista local sem precisar recarregar a página
+                setAppointments(prev => prev.map(a => a.id === apt.id ? { ...a, ficha_url: pdfUrl } : a));
+            }
+
+            console.log('[QUICK FICHA] PASSO 6 - Abrindo PDF em nova aba:', pdfUrl);
+            toast.success(`Ficha de ${colab.nome} gerada com sucesso!`);
+            window.open(pdfUrl, '_blank');
+
+            console.log('%c--- [QUICK FICHA] GERAÇÃO CONCLUÍDA COM SUCESSO ---', 'color: green; font-weight: bold; font-size: 14px');
+
+        } catch (err: any) {
+            console.error('%c[QUICK FICHA] FALHA GERAL na geração da ficha:', 'color: red; font-weight: bold', err);
+            toast.error(`Erro ao gerar ficha: ${err.message || 'Verifique o console para detalhes.'}`);
+        } finally {
+            // Remove o spinner do botão independentemente do resultado
+            setGeneratingFichaId(null);
+            console.log('[QUICK FICHA] Estado de loading limpo.');
+        }
     };
 
     const handleOpenProcedures = (apt: AgendamentoComProntuarios) => {
@@ -1226,9 +1397,44 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                                         </svg>
                                     </button>
                                 )}
-                                <button onClick={(e) => { e.stopPropagation(); openFicha(apt.ficha_url); }} className={`p-3 rounded-xl transition-all ${apt.ficha_url ? 'text-ios-primary bg-ios-primary/5 hover:bg-ios-primary/10' : 'text-gray-300 cursor-not-allowed bg-gray-50'}`} title={apt.ficha_url ? "Abrir Ficha Clínica" : "Ficha indisponível"} disabled={!apt.ficha_url}>
-                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                </button>
+                                {/* Botão de Ficha Clínica: Azul (Gerar) ou Roxo (Abrir) dependendo da URL */}
+                                {isFichaValida(apt.ficha_url) ? (
+                                    // Ficha já gerada corretamente: mostra botão roxo para abrir
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); openFicha(apt.ficha_url); }}
+                                        className="p-3 rounded-xl transition-all text-ios-primary bg-ios-primary/5 hover:bg-ios-primary/10"
+                                        title="Abrir Ficha Clínica"
+                                    >
+                                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                    </button>
+                                ) : (
+                                    // Ficha ausente ou inválida: mostra botão azul para gerar agora
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleQuickGenerateFicha(apt); }}
+                                        disabled={generatingFichaId === apt.id}
+                                        className={`p-3 rounded-xl transition-all border ${
+                                            generatingFichaId === apt.id
+                                                ? 'text-blue-300 bg-blue-50 border-blue-100 cursor-wait'
+                                                : 'text-blue-600 bg-blue-50 hover:bg-blue-100 border-blue-100'
+                                        }`}
+                                        title="Gerar Ficha Clínica"
+                                    >
+                                        {generatingFichaId === apt.id ? (
+                                            // Spinner animado enquanto a API processa
+                                            <svg className="w-6 h-6 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                            </svg>
+                                        ) : (
+                                            // Ícone de documento com '+' para gerar ficha
+                                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))}
