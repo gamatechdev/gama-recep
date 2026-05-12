@@ -351,6 +351,10 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         setObsAgendamento(initialAppointment.obs_agendamento);
       }
 
+      if ((initialAppointment as any).observacoes_laboratorial) {
+        setObsLaboratorial((initialAppointment as any).observacoes_laboratorial);
+      }
+
       if (initialAppointment.prioridade) {
         setPrioridade(initialAppointment.prioridade);
       }
@@ -390,11 +394,15 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         setSelectedFormularios(initialAppointment.prontuario_id);
       }
 
-      fetchCollaboratorDetails(initialAppointment.colaborador_id);
+     fetchCollaboratorDetails(
+      initialAppointment.colaborador_id, 
+      // Tenta buscar 'funcao', ou 'cargo', ou dentro do objeto 'colaboradores' se ele vier junto
+      (initialAppointment as any).funcao || (initialAppointment as any).cargo || (initialAppointment as any).colaboradores?.funcao
+    );
     }
   }, [initialAppointment]);
 
-  const fetchCollaboratorDetails = async (id: string) => {
+  const fetchCollaboratorDetails = async (id: string,funcaoOverride?: string) => {
     const { data, error } = await supabase
       .from('colaboradores')
       .select(`*, cargos ( nome ), setor_ref:setorid ( nome )`)
@@ -402,7 +410,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       .single();
 
     if (data) {
-      handleSelectColab(data as Colaborador);
+      handleSelectColab(data as Colaborador,funcaoOverride);
     }
   };
 
@@ -475,7 +483,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     }
   };
 
-  const handleSelectColab = async (colab: any) => {
+  const handleSelectColab = async (colab: any,funcaoOverride?: string) => {
     setSelectedColabId(colab.id);
 
     // Resolve Setor Name and ID
@@ -502,7 +510,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       data_nascimento: colab.data_nascimento,
       sexo: colab.sexo || 'M',
       setor: colab.setor || '',
-      funcao: colab.setor || '' // Carregamos o dado da coluna 'setor' para o campo de Função
+      funcao: funcaoOverride || colab.funcao || colab.setor || colab.setor_ref?.nome || ''
     });
     setColabSearchTerm('');
   };
@@ -646,7 +654,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     console.log("Payload:", payload);
     toast.info("Iniciando geração de PDF na API local...");
     try {
-      const response = await fetch("https://ficha-api.vercel.app/prontuarios", {
+      const response = await fetch("http://localhost:3002/prontuarios", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -937,8 +945,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         exam === 'Higidez' ? 'Higidez Mental' : exam
       );
 
-      // Usa examsForPdf (lista transformada) para a geração do PDF
-      const generatedUrl = await generatePDF({
+      // Monta o payload que será enviado para a API de geração de PDF
+      const pdfPayloadDebug = {
         agendamentoId: generateRandomId(23),
         empresa: selectedUnidade?.nome_unidade || "Matriz",
         nome: colabFormData.nome,
@@ -950,12 +958,18 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         tipoExame: appointmentData.tipo,
         setor: selectedSetorName || "Operacional",
         tipo_exame: [appointmentData.tipo],
-        exames_requisitados: examsForPdf, // Lista modificada apenas para o PDF
+        exames_requisitados: examsForPdf,
         observacoesClinica: obsClinica,
         observacoesLaboratorial: obsLaboratorial,
-        observacoes: obsClinica,
         formularios: selectedFormularios
-      });
+      };
+      // Log detalhado do payload enviado para a API de geração de PDF (JSON expandido)
+      console.log("\n========== PAYLOAD GERAÇÃO DE PDF ==========");
+      console.log(JSON.stringify(pdfPayloadDebug, null, 2));
+      console.log("=============================================\n");
+
+      // Usa o payload já montado acima para garantir que o log corresponde ao envio real
+      const generatedUrl = await generatePDF(pdfPayloadDebug);
 
       // Usa selectedExams para salvar no banco de dados (Higidez é mantido conforme UI)
 
@@ -1069,6 +1083,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           valor: finalValor || initialAppointment.valor || 0,
           metodo_pagamento: finalMetodo !== 'medicao' ? finalMetodo : (initialAppointment.metodo_pagamento || 'medicao'),
           observacoes: obsClinica || null,
+          observacoes_laboratorial: obsLaboratorial || null,
           aso_qtd_cobrar: asoQtdCobrar,
           rac_qtd_cobrar: racQtdCobrar,
           prontuario_id: selectedFormularios,
@@ -1076,6 +1091,11 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           // Salas recalculadas automaticamente baseado nos exames selecionados
           ...salasCalculadas,
         };
+
+        // Log detalhado do payload de atualização do agendamento (JSON expandido)
+        console.log("\n========== PAYLOAD ATUALIZAÇÃO AGENDAMENTO (SUPABASE) ==========");
+        console.log(JSON.stringify(updatePayload, null, 2));
+        console.log("================================================================\n");
 
         const { error } = await supabase.from('agendamentos').update(updatePayload).eq('id', initialAppointment.id);
         agendamentoError = error;
@@ -1094,6 +1114,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           valor: finalValor,
           metodo_pagamento: finalMetodo,
           observacoes: obsClinica || null,
+          observacoes_laboratorial: obsLaboratorial || null,
           compareceu: false,
           status: 'pendente',
           recepcao: 'Aguardando',
@@ -1104,6 +1125,11 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           // Salas calculadas automaticamente baseado nos exames selecionados
           ...salasCalculadas,
         };
+
+        // Log detalhado do payload de inserção do novo agendamento (JSON expandido)
+        console.log("\n========== PAYLOAD INSERÇÃO NOVO AGENDAMENTO (SUPABASE) ==========");
+        console.log(JSON.stringify(insertPayload, null, 2));
+        console.log("=================================================================\n");
 
         const { error } = await supabase.from('agendamentos').insert([insertPayload]);
         agendamentoError = error;
