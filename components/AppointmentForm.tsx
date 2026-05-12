@@ -26,7 +26,6 @@ const EXAMES_LIST = [
   { "idx": 11, "id": 458, "nome": "Glicemia em Jejum" },
   { "idx": 12, "id": 459, "nome": "EPF (parasitológico fezes)" },
   { "idx": 13, "id": 460, "nome": "EAS (urina)" },
-  { "idx": 14, "id": 461, "nome": "Grupo Sanguíneo + Fator RH" },
   { "idx": 15, "id": 462, "nome": "Gama GT" },
   { "idx": 16, "id": 463, "nome": "TGO / TGP" },
   { "idx": 17, "id": 464, "nome": "Ácido Trans. Muconico" },
@@ -647,7 +646,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     console.log("Payload:", payload);
     toast.info("Iniciando geração de PDF na API local...");
     try {
-      const response = await fetch("http://localhost:3002/prontuarios", {
+      const response = await fetch("https://ficha-api.vercel.app/prontuarios", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
