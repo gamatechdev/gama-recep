@@ -262,7 +262,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ onClose, cur
 
     const generatePDF = async (payload: any) => {
         try {
-            const response = await fetch("http://localhost:3002/prontuarios", {
+            const response = await fetch("https://ficha-api.vercel.app/prontuarios", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
