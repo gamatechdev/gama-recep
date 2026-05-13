@@ -654,7 +654,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     console.log("Payload:", payload);
     toast.info("Iniciando geração de PDF na API local...");
     try {
-      const response = await fetch("http://localhost:3002/prontuarios", {
+      const response = await fetch("https://ficha-api.vercel.app/prontuarios", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
