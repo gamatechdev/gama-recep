@@ -262,7 +262,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ onClose, cur
 
     const generatePDF = async (payload: any) => {
         try {
-            const response = await fetch("https://gerador-ficha-api.vercel.app/api/generate-pdf", {
+            const response = await fetch("http://localhost:3002/prontuarios", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
@@ -450,20 +450,28 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ onClose, cur
                 data: appointmentData.data_atendimento
             };
 
+            // Log detalhado do payload enviado para a API de geração de PDF
+            console.log("DEBUG: Payload enviado para Geração de PDF (Modal):", pdfPayload);
+
             const generatedUrl = await generatePDF(pdfPayload);
+
+            const agendamentoPayload = {
+                colaborador_id: finalColabId,
+                data_atendimento: appointmentData.data_atendimento,
+                tipo: appointmentData.tipo,
+                unidade: unitId,
+                status: 'pendente',
+                recepcao: 'Aguardando',
+                exames_snapshot: selectedExams,
+                ficha_url: generatedUrl
+            };
+
+            // Log detalhado do payload de inserção do agendamento
+            console.log("DEBUG: Payload de INSERÇÃO do Agendamento (Supabase - Modal):", agendamentoPayload);
 
             const { error: aptError } = await supabase
                 .from('agendamentos')
-                .insert([{
-                    colaborador_id: finalColabId,
-                    data_atendimento: appointmentData.data_atendimento,
-                    tipo: appointmentData.tipo,
-                    unidade: unitId,
-                    status: 'pendente',
-                    recepcao: 'Aguardando',
-                    exames_snapshot: selectedExams,
-                    ficha_url: generatedUrl
-                }]);
+                .insert([agendamentoPayload]);
 
             if (aptError) throw aptError;
 
