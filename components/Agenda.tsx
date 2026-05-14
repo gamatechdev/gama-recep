@@ -171,7 +171,7 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
             .from('agendamentos')
             .select(`
         *,
-        colaboradores:colaboradores!agendamentos_colaborador_id_fkey (id, nome, cpf, data_nascimento, sexo, cargos(nome), setor),
+        colaboradores:colaboradores!agendamentos_colaborador_id_fkey (id, nome, cpf, data_nascimento, sexo, cargos(nome), setor, setorid, cargo),
         unidades:unidades!agendamentos_unidade_fkey (id, nome_unidade),
         prontuarios:prontuarios_agendamentos!prontuarios_agendamentos_agendamento_id_fkey(*)
       `)
@@ -209,7 +209,7 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
             .from('agendamentos')
             .select(`
         *,
-        colaboradores:colaboradores!agendamentos_colaborador_id_fkey!inner (id, nome, cpf, data_nascimento, sexo, cargos(nome), setor),
+        colaboradores:colaboradores!agendamentos_colaborador_id_fkey!inner (id, nome, cpf, data_nascimento, sexo, cargos(nome), setor, setorid, cargo),
         unidades:unidades!agendamentos_unidade_fkey (id, nome_unidade),
         prontuarios:prontuarios_agendamentos!prontuarios_agendamentos_agendamento_id_fkey(*)
       `)
@@ -558,17 +558,24 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
             // ----------------------------------------------------------
             // PASSO 4: Montar o payload que será enviado para a API local 3002
             // ----------------------------------------------------------
+            // Resolve o nome da função/cargo: prioriza cargos.nome (tabela auxiliar),
+            // depois tenta colab.setor (que no gama-recep armazena texto da função),
+            // e por último usa fallback
+            const funcaoResolvida = colab.cargos?.nome || colab.setor || 'Não informado';
+            // Resolve o setor real: se houver setorid, busca o nome; senão usa colab.setor como fallback
+            const setorResolvido = colab.setor || 'Operacional';
+
             const payload = {
                 agendamentoId: `QUICK-${apt.id}-${Date.now()}`, // ID único para log na API
                 empresa: unidade?.nome_unidade || 'Matriz',
                 nome: colab.nome || 'Não informado',
                 dataExame: apt.data_atendimento,
-                funcao: colab.setor || 'Não informado',
+                funcao: funcaoResolvida, // Usa o nome do cargo da tabela cargos
                 cpf: colab.cpf || '',
                 dataNascimento: colab.data_nascimento || '',
                 sexo: colab.sexo || 'M',
                 tipoExame: apt.tipo || 'Admissional',
-                setor: colab.setor || 'Operacional',
+                setor: setorResolvido, // Usa o setor real do colaborador
                 tipo_exame: [apt.tipo || 'Admissional'],
                 exames_requisitados: examesParaPdf,
                 observacoesClinica: '',
@@ -577,16 +584,16 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                 formularios: formulariosList
             };
 
-            console.log('%c[QUICK FICHA] PASSO 4 - PAYLOAD COMPLETO enviado para http://localhost:3002/prontuarios:', 'color: orange; font-weight: bold');
+            console.log('%c[QUICK FICHA] PASSO 4 - PAYLOAD COMPLETO enviado para https://ficha-api.vercel.app/prontuarios', 'color: orange; font-weight: bold');
             console.log(JSON.stringify(payload, null, 2));
 
             // ----------------------------------------------------------
             // PASSO 5: Chamar a API local de geração de PDF
             // ----------------------------------------------------------
-            console.log('[QUICK FICHA] PASSO 5 - Fazendo requisição fetch para http://localhost:3002/prontuarios...');
+            console.log('[QUICK FICHA] PASSO 5 - Fazendo requisição fetch para https://ficha-api.vercel.app/prontuarios...');
             toast.info(`Gerando ficha para ${colab.nome}...`);
 
-            const response = await fetch('http://localhost:3002/prontuarios', {
+            const response = await fetch('https://ficha-api.vercel.app/prontuarios', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
