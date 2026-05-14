@@ -9,12 +9,13 @@ import CallScreen from './components/CallScreen';
 import ServiceScreen from './components/ServiceScreen';
 import StatsScreen from './components/StatsScreen';
 import AsoDocument from './components/AsoDocument';
+import { Audiometria } from './components/Audiometria';
 import { Agendamento } from './types';
 import { Toaster } from 'sonner';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'agenda' | 'novo' | 'chamada' | 'atendimento' | 'stats' | 'aso'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'agenda' | 'novo' | 'chamada' | 'atendimento' | 'stats' | 'aso' | 'audiometria'>('dashboard');
   const [loading, setLoading] = useState(true);
   
   // State for editing
@@ -89,6 +90,8 @@ const App: React.FC = () => {
                     }} 
                 />
             ) : <Agenda onNewAppointment={handleNewAppointment} onEditAppointment={handleEditAppointment} onGenerateAso={handleGenerateAso} />;
+        case 'audiometria':
+            return <Audiometria />;
         default:
             return <Dashboard />;
     }
