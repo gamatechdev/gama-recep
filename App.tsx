@@ -9,13 +9,14 @@ import CallScreen from './components/CallScreen';
 import ServiceScreen from './components/ServiceScreen';
 import StatsScreen from './components/StatsScreen';
 import AsoDocument from './components/AsoDocument';
-import { Audiometria } from './components/Audiometria';
+import { AudiometriaMenu } from './components/AudiometriaMenu';
 import { Agendamento } from './types';
+import { TabType } from './components/Sidebar';
 import { Toaster } from 'sonner';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'agenda' | 'novo' | 'chamada' | 'atendimento' | 'stats' | 'aso' | 'audiometria'>('dashboard');
+  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [loading, setLoading] = useState(true);
   
   // State for editing
@@ -23,6 +24,9 @@ const App: React.FC = () => {
   
   // State for ASO Generation
   const [asoAppointment, setAsoAppointment] = useState<Agendamento | null>(null);
+
+  // State for Audiometria Generation
+  const [audiometriaAppointment, setAudiometriaAppointment] = useState<Agendamento | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -58,6 +62,11 @@ const App: React.FC = () => {
     setActiveTab('aso');
   };
 
+  const handleOpenAudiometria = (appointment: Agendamento) => {
+    setAudiometriaAppointment(appointment);
+    setActiveTab('audiometriamenu');
+  };
+
   const renderContent = () => {
     switch (activeTab) {
         case 'dashboard':
@@ -75,7 +84,7 @@ const App: React.FC = () => {
                 />
             );
         case 'chamada':
-            return <CallScreen />;
+            return <CallScreen onOpenAudiometria={handleOpenAudiometria} />;
         case 'atendimento':
             return <ServiceScreen />;
         case 'stats':
@@ -90,8 +99,8 @@ const App: React.FC = () => {
                     }} 
                 />
             ) : <Agenda onNewAppointment={handleNewAppointment} onEditAppointment={handleEditAppointment} onGenerateAso={handleGenerateAso} />;
-        case 'audiometria':
-            return <Audiometria />;
+        case 'audiometriamenu':
+            return <AudiometriaMenu appointment={audiometriaAppointment} />;
         default:
             return <Dashboard />;
     }
