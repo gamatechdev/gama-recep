@@ -4,6 +4,7 @@ import { Agendamento } from '../types';
 import { toast } from 'sonner';
 import { supabase } from '@/supabaseClient';
 import { EXAM_TO_FORMULARIO_MAP, FORMULARIOS_FIXOS } from '../constants/formularioMap';
+import { AudioWaveform, AudioWaveformIcon } from 'lucide-react';
 
 // Copied from AppointmentForm to ensure consistency for export columns
 const EXAMES_LIST_EXPORT = [
@@ -583,10 +584,10 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
             // ----------------------------------------------------------
             // PASSO 5: Chamar a API local de geração de PDF
             // ----------------------------------------------------------
-            console.log('[QUICK FICHA] PASSO 5 - Fazendo requisição fetch para http://localhost:3002/prontuarios...');
+            console.log('[QUICK FICHA] PASSO 5 - Fazendo requisição fetch para https://ficha-api.vercel.app/prontuarios...');
             toast.info(`Gerando ficha para ${colab.nome}...`);
 
-            const response = await fetch('http://localhost:3002/prontuarios', {
+            const response = await fetch('https://ficha-api.vercel.app/prontuarios', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -1397,7 +1398,40 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                                         </svg>
                                     </button>
                                 )}
-                                {/* Botão de Ficha Clínica: Azul (Gerar) ou Roxo (Abrir) dependendo da URL */}
+
+
+                                
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleQuickGenerateFicha(apt); }}
+                                    className={`p-3 rounded-xl transition-all relative border ${
+                                        apt.audiometria === 'Finalizado'
+                                            ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border-emerald-100'
+                                            : 'text-gray-400 bg-gray-50 hover:bg-gray-100 border-gray-100'
+                                    }`}
+                                    title={apt.audiometria === 'Finalizado' ? "Baixar Audiometria" : "Audiometria não realizada"}
+                                    disabled={generatingFichaId === apt.id}
+                                >
+                                    {generatingFichaId === apt.id ? (
+                                        <svg className="w-6 h-6 animate-spin" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    ) : (
+                                        <>
+                                            <AudioWaveform className="w-6 h-6" />
+                                            {apt.audiometria === 'Finalizado' && (
+                                                <div className="absolute -bottom-1 -right-1 bg-emerald-500 rounded-full p-0.5 shadow-sm border-2 border-white">
+                                                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                    </svg>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </button>   
+
+
+                                 {/* Botão de Ficha Clínica: Azul (Gerar) ou Roxo (Abrir) dependendo da URL */}
                                 {isFichaValida(apt.ficha_url) ? (
                                     // Ficha já gerada corretamente: mostra botão roxo para abrir
                                     <button
