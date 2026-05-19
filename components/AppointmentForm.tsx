@@ -6,8 +6,8 @@ import { Colaborador, Unidade, Agendamento } from '../types';
 import { Button } from './Button';
 import { SearchableSelect } from './ui/SearchableSelect';
 import { toast } from 'sonner';
-// Importação de ícones do Lucide React para melhorar a UI
-import { ChevronDown, ImageIcon, Plus, Check, Trash2, Download, X, File, Loader2, Search } from 'lucide-react';
+// Importação de ícones do Lucide React para melhorar a UI, incluindo o ícone de copiar
+import { ChevronDown, ImageIcon, Plus, Check, Trash2, Download, X, File, Loader2, Search, Copy } from 'lucide-react';
 // Importação do mapeamento entre exames e formulários de prontuário
 import { EXAM_TO_FORMULARIO_MAP, FORMULARIOS_FIXOS } from '../constants/formularioMap';
 
@@ -181,6 +181,70 @@ interface AppointmentFormProps {
 
 const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, onCancel }) => {
   const [mode, setMode] = useState<'existing' | 'new'>('existing');
+  // Define o estado para controlar se a data de nascimento foi copiada para exibir feedback visual
+  const [copiedNascimento, setCopiedNascimento] = useState(false);
+  // Define o estado para controlar se a data do atendimento foi copiada para exibir feedback visual
+  const [copiedAtendimento, setCopiedAtendimento] = useState(false);
+
+  // Processa e converte as datas coladas em diversos formatos comuns para o formato ISO yyyy-MM-dd
+  const handlePasteDate = (e: React.ClipboardEvent<HTMLInputElement>, setValue: (val: string) => void) => {
+    // Recupera o valor de texto copiado na área de transferência e limpa espaços adicionais
+    const pastedText = e.clipboardData.getData('text').trim();
+    // Regex para validar formato brasileiro com separadores barra, traço ou ponto (dd/MM/yyyy)
+    const regexBR = /^(\d{2})[/\-.](\d{2})[/\-.](\d{4})$/;
+    // Regex para validar formato brasileiro sem separadores, contendo apenas os 8 dígitos (ddMMyyyy)
+    const regexBRDigits = /^(\d{2})(\d{2})(\d{4})$/;
+    // Regex para validar o formato de data padrão HTML/ISO (yyyy-MM-dd)
+    const regexISO = /^(\d{4})-(\d{2})-(\d{2})$/;
+    // Variável que armazenará a data final convertida
+    let formattedDate = '';
+    // Condição para converter formato brasileiro tradicional com separadores
+    if (regexBR.test(pastedText)) {
+      // Divide e obtém o dia, mês e ano capturados na regex
+      const [, day, month, year] = pastedText.match(regexBR) || [];
+      // Reordena para montar a data no formato esperado pelo input (yyyy-MM-dd)
+      formattedDate = `${year}-${month}-${day}`;
+    // Condição para converter formato brasileiro apenas com dígitos
+    } else if (regexBRDigits.test(pastedText)) {
+      // Divide e obtém o dia, mês e ano capturados a partir dos dígitos sequenciais
+      const [, day, month, year] = pastedText.match(regexBRDigits) || [];
+      // Reordena para montar a data no formato esperado pelo input (yyyy-MM-dd)
+      formattedDate = `${year}-${month}-${day}`;
+    // Condição para caso a data colada já esteja no formato esperado ISO
+    } else if (regexISO.test(pastedText)) {
+      // Atribui diretamente a data de origem por já estar no formato padrão
+      formattedDate = pastedText;
+    }
+    // Verifica se a conversão resultou em uma string de data válida
+    if (formattedDate) {
+      // Evita o comportamento de colagem padrão para que não ocorra dupla inserção ou erro
+      e.preventDefault();
+      // Atualiza o estado da data correspondente usando a função de callback
+      setValue(formattedDate);
+    }
+  };
+
+  // Copia a data convertida no formato BR amigável para a área de transferência do usuário
+  const copyToClipboard = (value: string, setCopiedState: (val: boolean) => void) => {
+    // Interrompe o processo se o campo correspondente não possuir nenhum valor
+    if (!value) return;
+    // Divide o valor do input em partes (ano, mês e dia)
+    const parts = value.split('-');
+    // Reconstrói no padrão brasileiro se estiver completa, caso contrário preserva o valor atual
+    const formatted = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : value;
+    // Tenta gravar o texto formatado na área de transferência do dispositivo do usuário
+    navigator.clipboard.writeText(formatted).then(() => {
+      // Modifica o estado para exibir o feedback visual de sucesso da cópia
+      setCopiedState(true);
+      // Exibe uma notificação do tipo toast avisando ao usuário que a cópia foi realizada
+      toast.success("Data copiada para a área de transferência!");
+      // Agenda para restaurar o estado após 2 segundos, ocultando o feedback visual de sucesso
+      setTimeout(() => setCopiedState(false), 2000);
+    }).catch(() => {
+      // Exibe uma notificação de erro caso ocorra falha na gravação do clipboard
+      toast.error("Erro ao copiar a data.");
+    });
+  };
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
 
@@ -1259,7 +1323,45 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Nome</label><input type="text" required value={colabFormData.nome} onChange={e => setColabFormData({ ...colabFormData, nome: e.target.value })} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" /></div>
                 <div><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">CPF</label><input type="text" required value={colabFormData.cpf} onChange={e => setColabFormData({ ...colabFormData, cpf: e.target.value })} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" /></div>
-                <div><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Nascimento</label><input type="date" required value={colabFormData.data_nascimento} onChange={e => setColabFormData({ ...colabFormData, data_nascimento: e.target.value })} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" /></div>
+                <div>
+                  {/* Rótulo descritivo do campo de data de nascimento */}
+                  <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Nascimento</label>
+                  {/* Container posicionado de forma relativa para acomodar o botão de cópia dentro do input */}
+                  <div className="relative flex items-center">
+                    {/* Input do tipo data para data de nascimento */}
+                    <input
+                      type="date"
+                      required
+                      value={colabFormData.data_nascimento}
+                      // Atualiza a propriedade data_nascimento do formulário ao digitar ou selecionar manualmente
+                      onChange={e => setColabFormData({ ...colabFormData, data_nascimento: e.target.value })}
+                      // Intercepta o evento de colagem do teclado ou mouse para formatar a data corretamente
+                      onPaste={(e) => handlePasteDate(e, (val) => setColabFormData({ ...colabFormData, data_nascimento: val }))}
+                      // Classe css para espaçamento correto, incluindo padding extra à direita para o botão
+                      className="w-full h-12 pl-4 pr-12 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none transition-all text-gray-800"
+                    />
+                    {/* Renderiza o botão apenas se houver uma data de nascimento válida preenchida */}
+                    {colabFormData.data_nascimento && (
+                      <button
+                        type="button"
+                        // Executa a cópia da data para a área de transferência ao clicar
+                        onClick={() => copyToClipboard(colabFormData.data_nascimento, setCopiedNascimento)}
+                        // Alinha o botão absolutamente na lateral direita interna do container
+                        className="absolute right-3 p-1.5 rounded-lg text-gray-400 hover:text-ios-primary hover:bg-gray-100 transition-colors"
+                        title="Copiar data"
+                      >
+                        {/* Exibe o ícone correspondente ao status da cópia (Check ou Copy) */}
+                        {copiedNascimento ? (
+                          // Ícone de check de sucesso na cor verde
+                          <Check size={16} className="text-green-500" />
+                        ) : (
+                          // Ícone de copiar padrão
+                          <Copy size={16} />
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
                 <div><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Sexo</label><select required value={colabFormData.sexo} onChange={e => setColabFormData({ ...colabFormData, sexo: e.target.value })} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none"><option value="M">Masculino</option><option value="F">Feminino</option></select></div>
                 <div>
                   <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Função</label>
@@ -1294,7 +1396,45 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           <div className="space-y-6">
             <h3 className="text-sm uppercase tracking-wider text-ios-subtext font-bold border-b border-gray-100 pb-2">Detalhes</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Data</label><input type="date" required value={appointmentData.data_atendimento} onChange={e => setAppointmentData({ ...appointmentData, data_atendimento: e.target.value })} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" /></div>
+              <div>
+                {/* Rótulo descritivo do campo de data de atendimento */}
+                <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Data</label>
+                {/* Container posicionado de forma relativa para acomodar o botão de cópia dentro do input */}
+                <div className="relative flex items-center">
+                  {/* Input do tipo data para data de atendimento */}
+                  <input
+                    type="date"
+                    required
+                    value={appointmentData.data_atendimento}
+                    // Atualiza a propriedade data_atendimento do agendamento ao digitar ou selecionar manualmente
+                    onChange={e => setAppointmentData({ ...appointmentData, data_atendimento: e.target.value })}
+                    // Intercepta o evento de colagem do teclado ou mouse para formatar a data corretamente
+                    onPaste={(e) => handlePasteDate(e, (val) => setAppointmentData({ ...appointmentData, data_atendimento: val }))}
+                    // Classe css para espaçamento correto, incluindo padding extra à direita para o botão
+                    className="w-full h-12 pl-4 pr-12 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none transition-all text-gray-800"
+                  />
+                  {/* Renderiza o botão apenas se houver uma data de atendimento válida preenchida */}
+                  {appointmentData.data_atendimento && (
+                    <button
+                      type="button"
+                      // Executa a cópia da data para a área de transferência ao clicar
+                      onClick={() => copyToClipboard(appointmentData.data_atendimento, setCopiedAtendimento)}
+                      // Alinha o botão absolutamente na lateral direita interna do container
+                      className="absolute right-3 p-1.5 rounded-lg text-gray-400 hover:text-ios-primary hover:bg-gray-100 transition-colors"
+                      title="Copiar data"
+                    >
+                      {/* Exibe o ícone correspondente ao status da cópia (Check ou Copy) */}
+                      {copiedAtendimento ? (
+                        // Ícone de check de sucesso na cor verde
+                        <Check size={16} className="text-green-500" />
+                      ) : (
+                        // Ícone de copiar padrão
+                        <Copy size={16} />
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
               <div>
                 {!isAvulso ? (
                   <>
