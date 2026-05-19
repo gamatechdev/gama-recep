@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Agendamento } from '../types';
 import { toast } from 'sonner';
 import { supabase } from '@/supabaseClient';
-import { EXAM_TO_FORMULARIO_MAP, FORMULARIOS_FIXOS } from '../constants/formularioMap';
+import { EXAM_TO_FORMULARIO_MAP } from '../constants/formularioMap';
 
 // Copied from AppointmentForm to ensure consistency for export columns
 const EXAMES_LIST_EXPORT = [
@@ -518,7 +518,8 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
             const exames = apt.exames_snapshot || [];
             console.log('[QUICK FICHA] PASSO 1 - Exames do snapshot:', exames);
 
-            const formulariosDerivados = new Set<string>(FORMULARIOS_FIXOS); // Sempre inclui FICHA_CLINICA
+            // Inicializa o conjunto de formulários derivados a serem gerados no prontuário
+            const formulariosDerivados = new Set<string>();
             exames.forEach(exame => {
                 const formularioCodigo = EXAM_TO_FORMULARIO_MAP[exame];
                 if (formularioCodigo) {

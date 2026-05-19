@@ -18,9 +18,10 @@ export const EXAM_TO_FORMULARIO_MAP: Record<string, string> = {
   "Questionário Epilepsia":  "QUESTIONARIO_EPILEPSIA",
   "Avaliação Vocal":         "AVALIACAO_VOCAL",
   "Teste Romberg":           "TESTE_ROMBERG",
-  "Escala de Epworth":       "EPWORTH"
+  "Escala de Epworth":       "EPWORTH",
+  "Ficha Clínica":           "FICHA_CLINICA",
+  // Mapeia o exame "Avaliação Clínica" para o formulário "Ficha Clínica" (FICHA_CLINICA)
+  "Avaliação Clínica":       "FICHA_CLINICA",
 };
 
-// Formulários fixos: nunca serão removidos pela sincronização automática,
-// mesmo que nenhum exame correspondente esteja selecionado.
-export const FORMULARIOS_FIXOS: string[] = ["FICHA_CLINICA"];
+
