@@ -366,7 +366,7 @@ export function LaudoPerda({
                   Declaro que estou ciente que houve no exame audiométrico
                 </span>
                 {/* Exibe o tipo de exame de forma fixa e elegante, sem dropdown interativo */}
-                <span className="font-bold   px-1">
+                <span className=" px-1">
                   {tipoExame || appointment?.tipo || "admissional"}
                 </span>
                 <span>, onde foi detectada alteração:</span>

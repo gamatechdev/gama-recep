@@ -645,7 +645,7 @@ export function Audiometria({
           {/* Título de Identificação Repetida no topo do bloco */}
           <div className="text-center border-b border-gray-400 pb-1 mb-2">
             <span className="text-[10px] font-bold uppercase text-black">
-              Identificação do Exame (Continuação)
+              Identificação do Exame
             </span>
           </div>
 

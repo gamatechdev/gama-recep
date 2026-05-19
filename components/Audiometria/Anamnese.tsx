@@ -15,6 +15,8 @@ interface AnamneseProps {
   patientData?: PatientData;
   // Função reativa para alterar o estado do paciente de forma global
   setPatientData?: React.Dispatch<React.SetStateAction<PatientData>>;
+  // Callback executado ao salvar as alterações com sucesso
+  onSaveSuccess?: () => void;
 }
 
 // Declara o componente funcional Anamnese
@@ -22,6 +24,7 @@ export function Anamnese({
   appointment,
   patientData,
   setPatientData,
+  onSaveSuccess,
 }: AnamneseProps) {
   // Estado para controlar as respostas do questionário e exibir campos condicionais
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -33,8 +36,8 @@ export function Anamnese({
 
   // Inicia o retorno da estrutura JSX
   return (
-    // Container principal da página, com classes para responsividade e impressão
-    <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 print:p-0 print:pt-4 print:m-0 print:space-y-4 print:max-w-none print:w-full">
+    // Container principal da página, com preenchimento superior zerado para elevar ao máximo o cabeçalho
+    <div className="w-full max-w-5xl mx-auto pt-0 px-4 pb-4 sm:pt-0 sm:px-6 sm:pb-6 lg:pt-0 lg:px-8 lg:pb-8 space-y-6 print:p-0 print:pt-4 print:m-0 print:space-y-4 print:max-w-none print:w-full">
       {/* Cabeçalho que só aparece durante a impressão */}
       <div className="hidden print:block text-center mb-4">
         {/* Título do documento impresso */}
@@ -43,10 +46,10 @@ export function Anamnese({
         </h1>
       </div>
 
-      {/* Cabeçalho superior na visualização de tela normal */}
-      <div className="glass-panel p-6 rounded-ios shadow-float border border-ios-primary/20 flex items-center justify-center bg-white/80 print:hidden">
+      {/* Cabeçalho superior na visualização de tela normal, posicionado com margem negativa para aproximar do topo */}
+      <div className="glass-panel p-6 rounded-ios shadow-float border border-ios-primary/20 flex items-center justify-center bg-white/80 print:hidden -mt-4 lg:-mt-8">
         {/* Ícone de prancheta representativo de formulário */}
-        <ClipboardList className="w-8 h-8 text-ios-primary mr-3" />
+        <ClipboardList className="w-8 h-8  text-ios-primary mr-3" />
         {/* Título em destaque na tela */}
         <h1 className="text-2xl font-bold text-ios-text tracking-tight uppercase">
           Anamnese Ocupacional
@@ -604,73 +607,7 @@ export function Anamnese({
                 </span>
               </label>
             </div>
-            {(answers.q4_moto === "sim" ||
-              answers.q4_fone === "sim" ||
-              answers.q4_musico === "sim") && (
-              <div className="pl-3 space-y-3 print:pl-4 animate-in fade-in slide-in-from-left-2 duration-300">
-                <span className="text-sm text-gray-600 print:text-xs">
-                  Qual ouvido?
-                </span>
-                <div className="flex flex-wrap gap-3">
-                  <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0">
-                    <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
-                      <input
-                        type="radio"
-                        name="q7_ear"
-                        value="od"
-                        checked={answers.q7_ear === "od"}
-                        onChange={(e) =>
-                          handleAnswerChange("q7_ear", e.target.value)
-                        }
-                        className="peer sr-only"
-                      />
-                      <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
-                    </div>
-                    <span className="text-sm font-medium print:text-xs">
-                      OD
-                    </span>
-                  </label>
-
-                  <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0">
-                    <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
-                      <input
-                        type="radio"
-                        name="q7_ear"
-                        value="oe"
-                        checked={answers.q7_ear === "oe"}
-                        onChange={(e) =>
-                          handleAnswerChange("q7_ear", e.target.value)
-                        }
-                        className="peer sr-only"
-                      />
-                      <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
-                    </div>
-                    <span className="text-sm font-medium print:text-xs">
-                      OE
-                    </span>
-                  </label>
-
-                  <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0">
-                    <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
-                      <input
-                        type="radio"
-                        name="q7_ear"
-                        value="ambos"
-                        checked={answers.q7_ear === "ambos"}
-                        onChange={(e) =>
-                          handleAnswerChange("q7_ear", e.target.value)
-                        }
-                        className="peer sr-only"
-                      />
-                      <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
-                    </div>
-                    <span className="text-sm font-medium print:text-xs">
-                      Ambos
-                    </span>
-                  </label>
-                </div>
-              </div>
-            )}
+           
           </div>
 
           {/* Pergunta 8: Cirurgia */}
@@ -881,51 +818,268 @@ export function Anamnese({
 
           {/* Pergunta 10: Doenças de infância */}
           <div className="flex flex-col space-y-4 print:space-y-2">
+            {/* Título da questão de doenças de infância */}
             <span className="text-sm font-bold text-ios-text print:text-xs">
               - Já teve:
             </span>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 print:flex print:gap-4">
+            {/* Grid para exibição responsiva dos itens em tela e flex no modo de impressão */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 print:flex print:gap-4 print:flex-wrap">
+              {/* Opção Caxumba */}
               <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                {/* Indicador visual de checkbox personalizado (ocultado na impressão) */}
+                <div className="relative flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
                   <input
-                    type="radio"
-                    name="q12"
-                    value="sim"
-                    checked={answers.q12 === "sim"}
-                    onChange={(e) => handleAnswerChange("q12", e.target.value)}
+                    type="checkbox"
+                    name="q10_caxumba"
+                    checked={answers.q10_caxumba === "sim"}
+                    onChange={(e) => handleAnswerChange("q10_caxumba", e.target.checked ? "sim" : "nao")}
                     className="peer sr-only"
                   />
-                  <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
+                  {/* Quadrado interno que é exibido somente se marcado */}
+                  <div className="w-3 h-3 rounded-sm bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                 </div>
-                <span className="text-sm font-medium print:text-xs">Sim</span>
+                {/* Marcador de preenchimento exclusivo para versão impressa */}
+                <span className="hidden print:inline mr-1 text-black font-mono">
+                  {answers.q10_caxumba === "sim" ? "( X )" : "(   )"}
+                </span>
+                <span className="text-sm font-medium print:text-xs">caxumba</span>
               </label>
 
+              {/* Opção Sarampo */}
+              <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
+                {/* Indicador visual de checkbox personalizado (ocultado na impressão) */}
+                <div className="relative flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                  <input
+                    type="checkbox"
+                    name="q10_sarampo"
+                    checked={answers.q10_sarampo === "sim"}
+                    onChange={(e) => handleAnswerChange("q10_sarampo", e.target.checked ? "sim" : "nao")}
+                    className="peer sr-only"
+                  />
+                  {/* Quadrado interno que é exibido somente se marcado */}
+                  <div className="w-3 h-3 rounded-sm bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
+                </div>
+                {/* Marcador de preenchimento exclusivo para versão impressa */}
+                <span className="hidden print:inline mr-1 text-black font-mono">
+                  {answers.q10_sarampo === "sim" ? "( X )" : "(   )"}
+                </span>
+                <span className="text-sm font-medium print:text-xs">sarampo</span>
+              </label>
+
+              {/* Opção Catapora */}
+              <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
+                {/* Indicador visual de checkbox personalizado (ocultado na impressão) */}
+                <div className="relative flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                  <input
+                    type="checkbox"
+                    name="q10_catapora"
+                    checked={answers.q10_catapora === "sim"}
+                    onChange={(e) => handleAnswerChange("q10_catapora", e.target.checked ? "sim" : "nao")}
+                    className="peer sr-only"
+                  />
+                  {/* Quadrado interno que é exibido somente se marcado */}
+                  <div className="w-3 h-3 rounded-sm bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
+                </div>
+                {/* Marcador de preenchimento exclusivo para versão impressa */}
+                <span className="hidden print:inline mr-1 text-black font-mono">
+                  {answers.q10_catapora === "sim" ? "( X )" : "(   )"}
+                </span>
+                <span className="text-sm font-medium print:text-xs">catapora</span>
+              </label>
+
+              {/* Opção Meningite */}
+              <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
+                {/* Indicador visual de checkbox personalizado (ocultado na impressão) */}
+                <div className="relative flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                  <input
+                    type="checkbox"
+                    name="q10_meningite"
+                    checked={answers.q10_meningite === "sim"}
+                    onChange={(e) => handleAnswerChange("q10_meningite", e.target.checked ? "sim" : "nao")}
+                    className="peer sr-only"
+                  />
+                  {/* Quadrado interno que é exibido somente se marcado */}
+                  <div className="w-3 h-3 rounded-sm bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
+                </div>
+                {/* Marcador de preenchimento exclusivo para versão impressa */}
+                <span className="hidden print:inline mr-1 text-black font-mono">
+                  {answers.q10_meningite === "sim" ? "( X )" : "(   )"}
+                </span>
+                <span className="text-sm font-medium print:text-xs">meningite</span>
+              </label>
+
+              {/* Opção Rubéola */}
+              <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
+                {/* Indicador visual de checkbox personalizado (ocultado na impressão) */}
+                <div className="relative flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                  <input
+                    type="checkbox"
+                    name="q10_rubeola"
+                    checked={answers.q10_rubeola === "sim"}
+                    onChange={(e) => handleAnswerChange("q10_rubeola", e.target.checked ? "sim" : "nao")}
+                    className="peer sr-only"
+                  />
+                  {/* Quadrado interno que é exibido somente se marcado */}
+                  <div className="w-3 h-3 rounded-sm bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
+                </div>
+                {/* Marcador de preenchimento exclusivo para versão impressa */}
+                <span className="hidden print:inline mr-1 text-black font-mono">
+                  {answers.q10_rubeola === "sim" ? "( X )" : "(   )"}
+                </span>
+                <span className="text-sm font-medium print:text-xs">rubéola</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Pergunta 11: Doenças Crônicas ou Recorrentes */}
+          <div className="flex flex-col space-y-4 print:space-y-2">
+            {/* Título da questão de doenças crônicas */}
+            <span className="text-sm font-bold text-ios-text print:text-xs">
+              - Já teve ou tem:
+            </span>
+            {/* Grid para exibição responsiva dos itens em tela e flex no modo de impressão */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 print:flex print:gap-4 print:flex-wrap">
+              {/* Opção Hipertensão */}
+              <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
+                {/* Indicador visual de checkbox personalizado (ocultado na impressão) */}
+                <div className="relative flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                  <input
+                    type="checkbox"
+                    name="q11_hipertensao"
+                    checked={answers.q11_hipertensao === "sim"}
+                    onChange={(e) => handleAnswerChange("q11_hipertensao", e.target.checked ? "sim" : "nao")}
+                    className="peer sr-only"
+                  />
+                  {/* Quadrado interno que é exibido somente se marcado */}
+                  <div className="w-3 h-3 rounded-sm bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
+                </div>
+                {/* Marcador de preenchimento exclusivo para versão impressa */}
+                <span className="hidden print:inline mr-1 text-black font-mono">
+                  {answers.q11_hipertensao === "sim" ? "( X )" : "(   )"}
+                </span>
+                <span className="text-sm font-medium print:text-xs">hipertensão</span>
+              </label>
+
+              {/* Opção Diabetes */}
+              <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
+                {/* Indicador visual de checkbox personalizado (ocultado na impressão) */}
+                <div className="relative flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                  <input
+                    type="checkbox"
+                    name="q11_diabetes"
+                    checked={answers.q11_diabetes === "sim"}
+                    onChange={(e) => handleAnswerChange("q11_diabetes", e.target.checked ? "sim" : "nao")}
+                    className="peer sr-only"
+                  />
+                  {/* Quadrado interno que é exibido somente se marcado */}
+                  <div className="w-3 h-3 rounded-sm bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
+                </div>
+                {/* Marcador de preenchimento exclusivo para versão impressa */}
+                <span className="hidden print:inline mr-1 text-black font-mono">
+                  {answers.q11_diabetes === "sim" ? "( X )" : "(   )"}
+                </span>
+                <span className="text-sm font-medium print:text-xs">diabetes</span>
+              </label>
+
+              {/* Opção Problemas Cardíacos */}
+              <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
+                {/* Indicador visual de checkbox personalizado (ocultado na impressão) */}
+                <div className="relative flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                  <input
+                    type="checkbox"
+                    name="q11_cardiacos"
+                    checked={answers.q11_cardiacos === "sim"}
+                    onChange={(e) => handleAnswerChange("q11_cardiacos", e.target.checked ? "sim" : "nao")}
+                    className="peer sr-only"
+                  />
+                  {/* Quadrado interno que é exibido somente se marcado */}
+                  <div className="w-3 h-3 rounded-sm bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
+                </div>
+                {/* Marcador de preenchimento exclusivo para versão impressa */}
+                <span className="hidden print:inline mr-1 text-black font-mono">
+                  {answers.q11_cardiacos === "sim" ? "( X )" : "(   )"}
+                </span>
+                <span className="text-sm font-medium print:text-xs">problemas cardíacos</span>
+              </label>
+            </div>
+
+            {/* Campo outros problemas de saúde com layout otimizado para preenchimento e impressão */}
+            <div className="pl-3 flex flex-col space-y-2 print:pl-0 print:space-y-0 print:flex-row print:items-baseline print:gap-2">
+              <span className="text-sm text-gray-600 print:text-xs print:font-bold">
+                Outros:
+              </span>
+              <input
+                type="text"
+                value={answers.q11_outros || ""}
+                onChange={(e) => handleAnswerChange("q11_outros", e.target.value)}
+                className="w-full sm:w-1/2 px-4 py-3 bg-ios-bg border border-gray-400 rounded-ios focus:outline-none focus:border-ios-primary focus:ring-2 focus:ring-0/10 transition-all text-sm print:border-0 print:border-b print:border-gray-400 print:px-0 print:py-0 print:text-[11px] print:text-black print:flex-1"
+                placeholder="Especifique outros problemas de saúde, se houver"
+              />
+            </div>
+          </div>
+
+          {/* Pergunta 12: Tontura */}
+          <div className="flex flex-col space-y-4 print:space-y-2">
+            {/* Título da questão de tontura */}
+            <span className="text-sm font-bold text-ios-text print:text-xs">
+              - Apresenta tontura?
+            </span>
+            {/* Grid para exibição dos botões Sim e Não */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:flex print:gap-4">
+              {/* Opção Sim */}
               <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
                 <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
                   <input
                     type="radio"
-                    name="q12"
-                    value="nao"
-                    checked={answers.q12 === "nao"}
-                    onChange={(e) => handleAnswerChange("q12", e.target.value)}
+                    name="q12_tontura"
+                    value="sim"
+                    checked={answers.q12_tontura === "sim"}
+                    onChange={(e) => handleAnswerChange("q12_tontura", e.target.value)}
                     className="peer sr-only"
                   />
                   <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                 </div>
-                <span className="text-sm font-medium print:text-xs">Não</span>
+                {/* Marcador exclusivo para a impressão */}
+                <span className="hidden print:inline mr-1 text-black font-mono">
+                  {answers.q12_tontura === "sim" ? "( X )" : "(   )"}
+                </span>
+                <span className="text-sm font-medium print:text-xs">sim</span>
+              </label>
+
+              {/* Opção Não */}
+              <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
+                <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                  <input
+                    type="radio"
+                    name="q12_tontura"
+                    value="nao"
+                    checked={answers.q12_tontura === "nao"}
+                    onChange={(e) => handleAnswerChange("q12_tontura", e.target.value)}
+                    className="peer sr-only"
+                  />
+                  <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
+                </div>
+                {/* Marcador exclusivo para a impressão */}
+                <span className="hidden print:inline mr-1 text-black font-mono">
+                  {answers.q12_tontura === "nao" ? "( X )" : "(   )"}
+                </span>
+                <span className="text-sm font-medium print:text-xs">não</span>
               </label>
             </div>
-            {answers.q12 === "sim" && (
-              <div className="pl-3 flex flex-col space-y-2 print:pl-4 print:space-y-1 animate-in fade-in slide-in-from-left-2 duration-300">
-                <span className="text-sm text-gray-600 print:text-xs">
-                  Qual a frequência?
-                </span>
-                <input
-                  type="text"
-                  className="w-full sm:w-1/2 px-4 py-3 bg-ios-bg border border-gray-400 rounded-ios focus:outline-none focus:border-ios-primary focus:ring-2 focus:ring-0/10 transition-all text-sm print:border-0 print:border-b print:px-0 print:py-1"
-                />
-              </div>
-            )}
+
+            {/* Campo frequência da tontura (exibido apenas se "sim" for selecionado na tela, ou exibido na impressão) */}
+            <div className={`pl-3 flex-col space-y-2 print:pl-0 print:space-y-0 print:flex-row print:items-baseline print:gap-2 ${answers.q12_tontura === "sim" ? "flex" : "hidden print:flex"} animate-in fade-in slide-in-from-left-2 duration-300`}>
+              <span className="text-sm text-gray-600 print:text-xs print:font-bold">
+                Qual a frequência?
+              </span>
+              <input
+                type="text"
+                value={answers.q12_tontura_freq || ""}
+                onChange={(e) => handleAnswerChange("q12_tontura_freq", e.target.value)}
+                className="w-full sm:w-1/2 px-4 py-3 bg-ios-bg border border-gray-400 rounded-ios focus:outline-none focus:border-ios-primary focus:ring-2 focus:ring-0/10 transition-all text-sm print:border-0 print:border-b print:border-gray-400 print:px-0 print:py-0 print:text-[11px] print:text-black print:flex-1"
+                placeholder="Informe a frequência da tontura"
+              />
+            </div>
           </div>
 
           {/* Pergunta 13: Zumbido */}
@@ -1210,7 +1364,14 @@ export function Anamnese({
       {/* Botão de Ação Principal: Salvar */}
       <div className="flex justify-center pt-0 pb-0 print:hidden">
         <button
-          onClick={() => alert("Anamnese salva com sucesso!")}
+          onClick={() => {
+            // Exibe um alerta avisando que a anamnese foi salva com sucesso
+            alert("Anamnese salva com sucesso!");
+            // Caso exista a função onSaveSuccess, executa a navegação para a tela de audiometria
+            if (onSaveSuccess) {
+              onSaveSuccess();
+            }
+          }}
           className="group relative flex items-center justify-center space-x-3 bg-ios-primary hover:bg-ios-primary/90 text-white font-bold py-4 px-16 rounded-ios shadow-float hover:shadow-float-lg transition-all transform hover:-translate-y-1 active:scale-95"
         >
           <Save className="w-5 h-5 group-hover:animate-bounce" />
