@@ -459,11 +459,12 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
 
      fetchCollaboratorDetails(
       initialAppointment.colaborador_id,
-      // Prioriza o nome do cargo vindo do join (cargos?.nome), depois o campo cargo/funcao direto do agendamento
+      // Prioriza o cargo/funcao vindo do proprio agendamento, o que também cobre agendamentos externos ("AGENDADO VIA SISTEMA")
+      // Depois tenta puxar do join (cargos?.nome)
       // Em nenhuma hipótese deve puxar o nome do setor como substituto de cargo
-      (initialAppointment as any).colaboradores?.cargos?.nome ||
       (initialAppointment as any).cargo ||
       (initialAppointment as any).funcao ||
+      (initialAppointment as any).colaboradores?.cargos?.nome ||
       undefined
     );
     }
