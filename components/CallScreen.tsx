@@ -3,16 +3,22 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Agendamento } from '../types';
 import { toast, Toaster } from 'sonner';
+import { BookAudio, File, FileArchive } from 'lucide-react';
 
 const ROOM_COLUMNS = [
   { key: 'consultorio', label: 'Consultório Médico' },
   { key: 'salaexames', label: 'Sala Exames' },
   { key: 'salacoleta', label: 'Sala Coleta' },
   { key: 'audiometria', label: 'Audiometria' },
-  { key: 'raiox', label: 'Raio-X' }
+  { key: 'raiox', label: 'Raio-X' },
+ 
 ];
 
-const CallScreen: React.FC = () => {
+interface CallScreenProps {
+  onOpenAudiometria?: (appointment: Agendamento) => void;
+}
+
+const CallScreen: React.FC<CallScreenProps> = ({ onOpenAudiometria }) => {
   const [appointments, setAppointments] = useState<Agendamento[]>([]);
   const [loading, setLoading] = useState(true);
   const [userAccessLevel, setUserAccessLevel] = useState<number | null>(null);
@@ -104,7 +110,8 @@ const CallScreen: React.FC = () => {
       .from('agendamentos')
       .select(`
         *,
-        colaboradores:colaboradores!agendamentos_colaborador_id_fkey (id, nome)
+        colaboradores:colaboradores!agendamentos_colaborador_id_fkey (id, nome, cpf, data_nascimento, sexo, setor),
+        unidades (nome_unidade)
       `)
       .eq('data_atendimento', today)
       .eq('compareceu', true)
@@ -341,6 +348,7 @@ const CallScreen: React.FC = () => {
                   <tr className="border-b border-gray-100 bg-gray-50/50">
                     <th className="px-6 py-5 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Chegada</th>
                     <th className="px-6 py-5 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Colaborador</th>
+                   
                     {ROOM_COLUMNS.map(col => (
                       <th key={col.key} className="px-6 py-5 text-center text-xs font-bold text-gray-400 uppercase tracking-wider">
                         {col.label}
@@ -369,11 +377,13 @@ const CallScreen: React.FC = () => {
                         </td>
                         <td className="px-6 py-5 whitespace-nowrap">
                           <div className="flex items-center gap-3">
+                            
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold shadow-sm ${apt.prioridade ? 'bg-red-100 text-red-600 ring-2 ring-red-100' : 'bg-ios-primary/10 text-ios-primary'}`}>
                               {apt.colaboradores?.nome?.charAt(0)}
                             </div>
                             <span className="font-semibold text-ios-text text-sm">{apt.colaboradores?.nome}</span>
                           </div>
+                          
                         </td>
                         {ROOM_COLUMNS.map(col => {
                           const status = apt[col.key as keyof Agendamento] as string;
@@ -406,7 +416,14 @@ const CallScreen: React.FC = () => {
                           return (
                             <td key={col.key} className="px-6 py-5 whitespace-nowrap text-center">
                               <button
-                                onClick={() => isClickable && cycleStatus(apt.id, col.key, status, apt.colaboradores?.nome)}
+                                onClick={() => {
+                                  if (isClickable) {
+                                    cycleStatus(apt.id, col.key, status, apt.colaboradores?.nome);
+                                    if (col.key === 'audiometria' && status === 'Aguardando') {
+                                      onOpenAudiometria?.(apt);
+                                    }
+                                  }
+                                }}
                                 className={`w-8 h-8 rounded-full shadow-md transition-all duration-300 transform border-2 border-white ${getDotColor(status, isClickable)}`}
                                 title={tooltip}
                                 disabled={!isClickable || status === 'Finalizado'}
@@ -465,7 +482,14 @@ const CallScreen: React.FC = () => {
                         <div key={col.key} className="flex items-center justify-between bg-gray-50 rounded-xl p-3">
                           <span className={`text-sm font-medium ${isClickable ? 'text-gray-600' : 'text-gray-300'}`}>{col.label}</span>
                           <button
-                            onClick={() => isClickable && cycleStatus(apt.id, col.key, status, apt.colaboradores?.nome)}
+                            onClick={() => {
+                              if (isClickable) {
+                                cycleStatus(apt.id, col.key, status, apt.colaboradores?.nome);
+                                if (col.key === 'audiometria' && status === 'Aguardando') {
+                                  onOpenAudiometria?.(apt);
+                                }
+                              }
+                            }}
                             className={`w-10 h-10 rounded-full shadow-sm transition-all flex items-center justify-center border-2 border-white ${getDotColor(status, isClickable)}`}
                             disabled={!isClickable || status === 'Finalizado'}
                           >

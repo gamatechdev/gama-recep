@@ -1,27 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from './supabaseClient';
-import Auth from './components/Auth';
-import Layout from './components/Layout';
-import Dashboard from './components/Dashboard';
-import Agenda from './components/Agenda';
-import AppointmentForm from './components/AppointmentForm';
-import CallScreen from './components/CallScreen';
-import ServiceScreen from './components/ServiceScreen';
-import StatsScreen from './components/StatsScreen';
-import AsoDocument from './components/AsoDocument';
-import { Agendamento } from './types';
-import { Toaster } from 'sonner';
+import React, { useState, useEffect } from "react";
+import { supabase } from "./supabaseClient";
+import Auth from "./components/Auth";
+import Layout from "./components/Layout";
+import Dashboard from "./components/Dashboard";
+import Agenda from "./components/Agenda";
+import AppointmentForm from "./components/AppointmentForm";
+import CallScreen from "./components/CallScreen";
+import ServiceScreen from "./components/ServiceScreen";
+import StatsScreen from "./components/StatsScreen";
+import AsoDocument from "./components/AsoDocument";
+import { AudiometriaMenu } from "./components/Audiometria/AudiometriaMenu";
+import { Agendamento } from "./types";
+import { TabType } from "./components/Sidebar";
+import { Toaster } from "sonner";
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'agenda' | 'novo' | 'chamada' | 'atendimento' | 'stats' | 'aso'>('dashboard');
+  const [activeTab, setActiveTab] = useState<TabType>("dashboard");
   const [loading, setLoading] = useState(true);
-  
+
   // State for editing
-  const [editingAppointment, setEditingAppointment] = useState<Agendamento | null>(null);
-  
+  const [editingAppointment, setEditingAppointment] =
+    useState<Agendamento | null>(null);
+
   // State for ASO Generation
-  const [asoAppointment, setAsoAppointment] = useState<Agendamento | null>(null);
+  const [asoAppointment, setAsoAppointment] = useState<Agendamento | null>(
+    null,
+  );
+
+  // State for Audiometria Generation
+  const [audiometriaAppointment, setAudiometriaAppointment] =
+    useState<Agendamento | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -44,74 +53,100 @@ const App: React.FC = () => {
 
   const handleNewAppointment = () => {
     setEditingAppointment(null);
-    setActiveTab('novo');
+    setActiveTab("novo");
   };
 
   const handleEditAppointment = (appointment: Agendamento) => {
     setEditingAppointment(appointment);
-    setActiveTab('novo');
+    setActiveTab("novo");
   };
 
   const handleGenerateAso = (appointment: Agendamento) => {
     setAsoAppointment(appointment);
-    setActiveTab('aso');
+    setActiveTab("aso");
+  };
+
+  const handleOpenAudiometria = (appointment: Agendamento) => {
+    setAudiometriaAppointment(appointment);
+    setActiveTab("audiometriamenu");
   };
 
   const renderContent = () => {
     switch (activeTab) {
-        case 'dashboard':
-            return <Dashboard />;
-        case 'agenda':
-            return <Agenda onNewAppointment={handleNewAppointment} onEditAppointment={handleEditAppointment} onGenerateAso={handleGenerateAso} />;
-        case 'novo':
-            return (
-                <AppointmentForm 
-                    initialAppointment={editingAppointment} 
-                    onCancel={() => {
-                        setEditingAppointment(null);
-                        setActiveTab('agenda');
-                    }}
-                />
-            );
-        case 'chamada':
-            return <CallScreen />;
-        case 'atendimento':
-            return <ServiceScreen />;
-        case 'stats':
-            return <StatsScreen />;
-        case 'aso':
-            return asoAppointment ? (
-                <AsoDocument 
-                    appointment={asoAppointment} 
-                    onBack={() => {
-                        setAsoAppointment(null);
-                        setActiveTab('agenda');
-                    }} 
-                />
-            ) : <Agenda onNewAppointment={handleNewAppointment} onEditAppointment={handleEditAppointment} onGenerateAso={handleGenerateAso} />;
-        default:
-            return <Dashboard />;
+      case "dashboard":
+        return <Dashboard />;
+      case "agenda":
+        return (
+          <Agenda
+            onNewAppointment={handleNewAppointment}
+            onEditAppointment={handleEditAppointment}
+            onGenerateAso={handleGenerateAso}
+          />
+        );
+      case "novo":
+        return (
+          <AppointmentForm
+            initialAppointment={editingAppointment}
+            onCancel={() => {
+              setEditingAppointment(null);
+              setActiveTab("agenda");
+            }}
+          />
+        );
+      case "chamada":
+        return <CallScreen onOpenAudiometria={handleOpenAudiometria} />;
+      case "atendimento":
+        return <ServiceScreen />;
+      case "stats":
+        return <StatsScreen />;
+      case "aso":
+        return asoAppointment ? (
+          <AsoDocument
+            appointment={asoAppointment}
+            onBack={() => {
+              setAsoAppointment(null);
+              setActiveTab("agenda");
+            }}
+          />
+        ) : (
+          <Agenda
+            onNewAppointment={handleNewAppointment}
+            onEditAppointment={handleEditAppointment}
+            onGenerateAso={handleGenerateAso}
+          />
+        );
+      case "audiometriamenu":
+        return <AudiometriaMenu appointment={audiometriaAppointment} />;
+      default:
+        return <Dashboard />;
     }
   };
 
   if (loading) {
-    return <div className="h-screen w-screen flex items-center justify-center bg-ios-bg text-ios-primary font-medium animate-pulse">Iniciando Gama OS...</div>;
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-ios-bg text-ios-primary font-medium animate-pulse">
+        Iniciando Gama OS...
+      </div>
+    );
   }
 
   if (!session) {
-    return <Auth onSuccess={() => {
-        // Force session refresh implicitly handled by onAuthStateChange or just reload logic
-        window.location.reload(); 
-    }} />;
+    return (
+      <Auth
+        onSuccess={() => {
+          // Force session refresh implicitly handled by onAuthStateChange or just reload logic
+          window.location.reload();
+        }}
+      />
+    );
   }
 
-
   return (
-    <Layout 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        onLogout={handleLogout}
-        userId={session.user.id} 
+    <Layout
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      onLogout={handleLogout}
+      userId={session.user.id}
     >
       {renderContent()}
       <Toaster richColors position="top-right" />
