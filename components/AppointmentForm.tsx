@@ -8,9 +8,8 @@ import { SearchableSelect } from './ui/SearchableSelect';
 import { toast } from 'sonner';
 // Importação de ícones do Lucide React para melhorar a UI, incluindo o ícone de copiar
 import { ChevronDown, ImageIcon, Plus, Check, Trash2, Download, X, File, Loader2, Search, Copy } from 'lucide-react';
-// Importação do mapeamento entre exames e formulários de prontuário
-import { EXAM_TO_FORMULARIO_MAP, FORMULARIOS_FIXOS } from '../constants/formularioMap';
-
+// Importa o mapeamento entre exames e formulários do arquivo de configuração
+import { EXAM_TO_FORMULARIO_MAP } from '../constants/formularioMap';
 const EXAMES_LIST = [
   { "idx": 0, "id": 447, "nome": "Avaliação Clínica" },
   { "idx": 1, "id": 448, "nome": "Audiometria" },
@@ -308,7 +307,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   const [examSearchTerm, setExamSearchTerm] = useState('');
 
   // New Fields: Forms and Observations
-  const [selectedFormularios, setSelectedFormularios] = useState<string[]>(["FICHA_CLINICA"]);
+  // Define o estado inicial da lista de formulários selecionados como vazia
+  const [selectedFormularios, setSelectedFormularios] = useState<string[]>([]);
   const [obsClinica, setObsClinica] = useState('');
   const [obsLaboratorial, setObsLaboratorial] = useState('');
   const [asoQtdCobrar, setAsoQtdCobrar] = useState(0);
@@ -437,9 +437,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           .map((exame: string) => EXAM_TO_FORMULARIO_MAP[exame]) // Busca o formulário correspondente
           .filter(Boolean); // Remove os exames sem mapeamento (undefined)
 
-        // Garante que os formulários fixos estejam sempre presentes
-        // e que não haja valores duplicados com Set
-        setSelectedFormularios([...new Set([...FORMULARIOS_FIXOS, ...formulariosDerived])]);
+        // Garante que não haja valores duplicados na lista de formulários derivados
+        setSelectedFormularios([...new Set(formulariosDerived)]);
       }
 
       if (initialAppointment.valor && initialAppointment.valor > 0) {
@@ -459,9 +458,14 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       }
 
      fetchCollaboratorDetails(
-      initialAppointment.colaborador_id, 
-      // Tenta buscar 'funcao', ou 'cargo', ou dentro do objeto 'colaboradores' se ele vier junto
-      (initialAppointment as any).funcao || (initialAppointment as any).cargo || (initialAppointment as any).colaboradores?.funcao
+      initialAppointment.colaborador_id,
+      // Prioriza o cargo/funcao vindo do proprio agendamento, o que também cobre agendamentos externos ("AGENDADO VIA SISTEMA")
+      // Depois tenta puxar do join (cargos?.nome)
+      // Em nenhuma hipótese deve puxar o nome do setor como substituto de cargo
+      (initialAppointment as any).cargo ||
+      (initialAppointment as any).funcao ||
+      (initialAppointment as any).colaboradores?.cargos?.nome ||
+      undefined
     );
     }
   }, [initialAppointment]);
@@ -506,8 +510,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       // Remove o exame da lista de exames selecionados
       setSelectedExams(prev => prev.filter(e => e !== examName));
 
-      // Se houver formulário associado, remove-o também — a menos que seja fixo
-      if (formularioAssociado && !FORMULARIOS_FIXOS.includes(formularioAssociado)) {
+      // Se houver formulário associado, remove-o também da seleção
+      if (formularioAssociado) {
         setSelectedFormularios(prev => prev.filter(f => f !== formularioAssociado));
       }
     } else {
@@ -536,13 +540,14 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // Define a função que alterna a seleção manual de formulários de prontuário
   const toggleFormulario = (formValue: string) => {
-    // Formulários fixos (ex: Ficha Clínica) não podem ser removidos manualmente
-    if (FORMULARIOS_FIXOS.includes(formValue)) return;
-
+    // Verifica se o formulário correspondente já está na lista dos selecionados
     if (selectedFormularios.includes(formValue)) {
+      // Remove o formulário da seleção caso já estivesse marcado
       setSelectedFormularios(selectedFormularios.filter(f => f !== formValue));
     } else {
+      // Insere o formulário na lista dos selecionados caso não estivesse marcado
       setSelectedFormularios([...selectedFormularios, formValue]);
     }
   };
@@ -574,7 +579,13 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       data_nascimento: colab.data_nascimento,
       sexo: colab.sexo || 'M',
       setor: colab.setor || '',
-      funcao: funcaoOverride || colab.funcao || colab.setor || colab.setor_ref?.nome || ''
+      // Se funcaoOverride for definido, o agendamento veio de um sistema externo (ex: Gama Clientes)
+      // → usa somente o cargo do payload, NUNCA o nome do setor como substituto
+      // Se funcaoOverride for undefined, o agendamento é interno (Gama Recep)
+      // → usa o comportamento original, com fallback para setor caso não haja cargo/funcao
+      funcao: funcaoOverride !== undefined
+        ? funcaoOverride
+        : (colab.cargos?.nome || colab.funcao || colab.setor || colab.setor_ref?.nome || '')
     });
     setColabSearchTerm('');
   };
@@ -663,7 +674,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   const clearFields = () => {
     setColabFormData({ nome: '', cpf: '', data_nascimento: '', sexo: 'M', setor: '', funcao: '' });
     setSelectedExams([]);
-    setSelectedFormularios(["FICHA_CLINICA"]);
+    // Limpa a lista de formulários selecionados deixando-a vazia
+    setSelectedFormularios([]);
     setObsClinica(''); setObsLaboratorial(''); setSelectedColabId('');
     setColabSearchTerm(''); setUnitSearchTerm('');
     setAppointmentData(prev => ({ ...prev, unidade: '' }));
