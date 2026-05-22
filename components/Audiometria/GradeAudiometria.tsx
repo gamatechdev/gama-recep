@@ -5,7 +5,7 @@ import { Activity, Circle, FileSignature, Undo2, Trash2 } from "lucide-react";
 import gradeImage from "../ui/grade/image_audiometria.png";
 
 // Interface para estruturar as coordenadas e o símbolo de cada ponto clínico
-interface Point {
+export interface Point {
   // Coordenada horizontal X lógica do ponto no canvas
   x: number;
   // Coordenada vertical Y lógica do ponto no canvas
@@ -15,15 +15,25 @@ interface Point {
 }
 
 // Interface para estruturar uma conexão de reta sólida ou pontilhada entre dois pontos
-interface Line {
+export interface Line {
   // Índice do ponto de origem no array correspondente
   fromIndex: number;
   // Índice do ponto de destino no array correspondente
   toIndex: number;
 }
 
+// Interface de propriedades para enviar o estado da Grade ao pai
+interface GradeAudiometriaProps {
+  onStateChange?: (state: {
+    pointsOD: Point[];
+    pointsOE: Point[];
+    linesOD: Line[];
+    linesOE: Line[];
+  }) => void;
+}
+
 // Componente GradeAudiometria contendo toda a lógica de desenho tonal clínico
-export function GradeAudiometria() {
+export function GradeAudiometria({ onStateChange }: GradeAudiometriaProps) {
   // Estado local para gerenciar a coleção de pontos da Orelha Direita (OD)
   const [pointsOD, setPointsOD] = useState<Point[]>([]);
   // Estado local para gerenciar a coleção de pontos da Orelha Esquerda (OE)
@@ -244,6 +254,18 @@ export function GradeAudiometria() {
     renderCanvas("OD");
     renderCanvas("OE");
   }, [pointsOD, pointsOE, linesOD, linesOE, selectedPoint]);
+
+  // Efeito colateral para informar o componente pai sempre que o estado da grade for atualizado
+  useEffect(() => {
+    if (onStateChange) {
+      onStateChange({
+        pointsOD,
+        pointsOE,
+        linesOD,
+        linesOE,
+      });
+    }
+  }, [pointsOD, pointsOE, linesOD, linesOE, onStateChange]);
 
   // Manipulador disparado ao clicar no canvas de desenho interativo
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>, ear: "OD" | "OE") => {

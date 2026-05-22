@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Audiometria } from "./Audiometria";
 import { Anamnese } from "./Anamnese";
 import { Agendamento } from "../../types";
+import gamaicon from "../ui/grade/gamaicon.png";
 
 // Interface para os dados cadastrais do paciente compartilhados entre as abas
 export interface PatientData {
@@ -66,27 +67,35 @@ export function AudiometriaMenu({ appointment }: AudiometriaMenuProps) {
     repouso: "",
   });
 
+  // Estado das respostas do questionário da Anamnese compartilhado com a impressão do PDF
+  const [anamneseAnswers, setAnamneseAnswers] = useState<Record<string, string>>({});
+
   return (
-    <div className="w-full space-y-6  ">
-      {/* Conteúdo Dinâmico */}
-      <div className="animate-in fade-in slide-in-from-bottom-4  duration-500">
-        {activeTab === "audiometria" ? (
-          // Renderiza a ficha de audiometria passando o estado comum de cadastro do paciente
-          <Audiometria
-            appointment={appointment}
-            patientData={patientData}
-            setPatientData={setPatientData}
-          />
-        ) : (
-          // Renderiza o questionário de anamnese passando o mesmo estado comum de cadastro do paciente
-          // Adiciona a prop onSaveSuccess para navegar automaticamente para audiometria ao salvar
+    // Container principal da página de exames
+    <div className="w-full space-y-6">
+      <div className="relative">
+        {/* Painel da Anamnese: visível na tela quando a aba ativa for "anamnese" */}
+        <div className={`animate-in fade-in duration-500 ${activeTab === "anamnese" ? "block" : "hidden"}`}>
           <Anamnese
             appointment={appointment}
             patientData={patientData}
             setPatientData={setPatientData}
+            answers={anamneseAnswers}
+            setAnswers={setAnamneseAnswers}
             onSaveSuccess={() => setActiveTab("audiometria")}
           />
-        )}
+        </div>
+
+        {/* Painel da Audiometria: visível na tela quando a aba ativa for "audiometria" */}
+        <div className={`animate-in fade-in duration-500 ${activeTab === "audiometria" ? "block" : "hidden"}`}>
+          <Audiometria
+            appointment={appointment}
+            patientData={patientData}
+            setPatientData={setPatientData}
+            anamneseAnswers={anamneseAnswers}
+            onBack={() => setActiveTab("anamnese")}
+          />
+        </div>
       </div>
     </div>
   );
