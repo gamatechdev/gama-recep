@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 // Importamos os ícones do lucide-react necessários para a barra de ferramentas
-import { Activity, Circle, FileSignature, Undo2, Trash2 } from "lucide-react";
+import { Activity, Circle, FileSignature, Eraser, Trash2 } from "lucide-react";
 // Importamos a imagem da grade audiométrica que servirá de fundo para os canvases
 import gradeImage from "../ui/grade/image_audiometria.png";
 
 // Interface para estruturar as coordenadas e o símbolo de cada ponto clínico
-interface Point {
+export interface Point {
   // Coordenada horizontal X lógica do ponto no canvas
   x: number;
   // Coordenada vertical Y lógica do ponto no canvas
@@ -14,16 +14,32 @@ interface Point {
   symbol: "bolinha" | "X" | "<" | ">";
 }
 
-// Interface para estruturar uma conexão de reta sólida ou pontilhada entre dois pontos
-interface Line {
-  // Índice do ponto de origem no array correspondente
-  fromIndex: number;
-  // Índice do ponto de destino no array correspondente
-  toIndex: number;
+export interface Line {
+  fromIndex?: number;
+  toIndex?: number;
+  x1?: number;
+  y1?: number;
+  x2?: number;
+  y2?: number;
+}
+
+// Interface de propriedades para enviar o estado da Grade ao pai
+interface GradeAudiometriaProps {
+  onStateChange?: (state: {
+    pointsOD: Point[];
+    pointsOE: Point[];
+    linesOD: Line[];
+    linesOE: Line[];
+  }) => void;
+}
+
+// Interface para referenciar os métodos expostos para o componente pai
+export interface GradeAudiometriaRef {
+  exportImages: () => Promise<{ imageOD: string; imageOE: string }>;
 }
 
 // Componente GradeAudiometria contendo toda a lógica de desenho tonal clínico
-export function GradeAudiometria() {
+export const GradeAudiometria = forwardRef<GradeAudiometriaRef, GradeAudiometriaProps>(({ onStateChange }, ref) => {
   // Estado local para gerenciar a coleção de pontos da Orelha Direita (OD)
   const [pointsOD, setPointsOD] = useState<Point[]>([]);
   // Estado local para gerenciar a coleção de pontos da Orelha Esquerda (OE)
@@ -41,7 +57,10 @@ export function GradeAudiometria() {
   const [selectedPoint, setSelectedPoint] = useState<{ ear: "OD" | "OE"; index: number } | null>(null);
 
   // Estado local para rastrear qual ferramenta ou modo de desenho está selecionado no momento
-  const [drawMode, setDrawMode] = useState<"bolinha" | "X" | "<" | ">" | "ligar">("bolinha");
+  const [drawMode, setDrawMode] = useState<"bolinha" | "X" | "<" | ">" | "ligar" | "apagar">("bolinha");
+
+  // Estado local para controlar se o usuário está com botão pressionado (arrastando)
+  const [isDragging, setIsDragging] = useState(false);
 
   // Estado local para controlar a aba de orelha ativa em exibição ("OE" ou "OD")
   const [activeTab, setActiveTab] = useState<"OE" | "OD">("OE");
@@ -51,37 +70,74 @@ export function GradeAudiometria() {
   // Referência do React para capturar e desenhar no canvas da Orelha Esquerda (OE)
   const canvasOERef = useRef<HTMLCanvasElement>(null);
 
-  // Estado local que armazena a pilha do histórico para permitir a funcionalidade Desfazer (Undo)
-  const [history, setHistory] = useState<{
-    pointsOD: Point[];
-    pointsOE: Point[];
-    linesOD: Line[];
-    linesOE: Line[];
-  }[]>([]);
+  // Expõe a função de exportar as imagens da grade mesclada (Fundo + Traços do usuário) em Base64
+  useImperativeHandle(ref, () => ({
+    exportImages: async () => {
+      const getMergedDataURL = async (canvasRef: React.RefObject<HTMLCanvasElement>) => {
+        return new Promise<string>((resolve) => {
+          const offscreenCanvas = document.createElement('canvas');
+          offscreenCanvas.width = 750;
+          offscreenCanvas.height = 583;
+          const ctx = offscreenCanvas.getContext('2d');
+          if (!ctx) return resolve('');
 
-  // Função auxiliar para registrar um snapshot do estado atual na pilha do histórico antes de alterações
-  const pushToHistory = () => {
-    setHistory((prev) => [
-      ...prev,
-      {
-        pointsOD: [...pointsOD],
-        pointsOE: [...pointsOE],
-        linesOD: [...linesOD],
-        linesOE: [...linesOE],
-      },
-    ]);
-  };
+          // Carrega a imagem de fundo
+          const bgImg = new window.Image();
+          // Importante não poluir o canvas para exportação
+          bgImg.onload = () => {
+            // Desenha o fundo primeiro
+            ctx.drawImage(bgImg, 0, 0, 750, 583);
+            // Desenha os traços interativos por cima
+            if (canvasRef.current) {
+              ctx.drawImage(canvasRef.current, 0, 0);
+            }
+            resolve(offscreenCanvas.toDataURL('image/png', 1.0));
+          };
+          bgImg.onerror = () => {
+            // Se falhar o carregamento do fundo, retorna os traços com fundo transparente
+            if (canvasRef.current) {
+              ctx.drawImage(canvasRef.current, 0, 0);
+            }
+            resolve(offscreenCanvas.toDataURL('image/png', 1.0));
+          };
+          // Fonte da imagem base64 ou URL local contida no import
+          bgImg.src = gradeImage;
+        });
+      };
 
-  // Função para reverter a última ação, restaurando o snapshot anterior
-  const handleUndo = () => {
-    if (history.length === 0) return;
-    const lastState = history[history.length - 1];
-    setPointsOD(lastState.pointsOD);
-    setPointsOE(lastState.pointsOE);
-    setLinesOD(lastState.linesOD);
-    setLinesOE(lastState.linesOE);
-    setHistory((prev) => prev.slice(0, -1));
-    setSelectedPoint(null);
+      const imageOD = await getMergedDataURL(canvasODRef);
+      const imageOE = await getMergedDataURL(canvasOERef);
+
+      return { imageOD, imageOE };
+    }
+  }));
+
+  // Função auxiliar para calcular distância de um ponto a um segmento de reta
+  const pointLineDistance = (px: number, py: number, x1: number, y1: number, x2: number, y2: number) => {
+    const A = px - x1;
+    const B = py - y1;
+    const C = x2 - x1;
+    const D = y2 - y1;
+    const dot = A * C + B * D;
+    const len_sq = C * C + D * D;
+    let param = -1;
+    if (len_sq !== 0) {
+      param = dot / len_sq;
+    }
+    let xx, yy;
+    if (param < 0) {
+      xx = x1;
+      yy = y1;
+    } else if (param > 1) {
+      xx = x2;
+      yy = y2;
+    } else {
+      xx = x1 + param * C;
+      yy = y1 + param * D;
+    }
+    const dx = px - xx;
+    const dy = py - yy;
+    return Math.sqrt(dx * dx + dy * dy);
   };
 
   // Função para alternar a conexão automática, resetando o modo de ligação manual se ativada
@@ -217,10 +273,19 @@ export function GradeAudiometria() {
 
       // 1. Desenha primeiro as conexões de reta para que fiquem abaixo dos símbolos
       lines.forEach((line) => {
-        const p1 = points[line.fromIndex];
-        const p2 = points[line.toIndex];
-        if (p1 && p2) {
-          drawLineBetween(ctx, p1, p2, color, ear === "OE");
+        let px1, py1, px2, py2;
+        if (line.x1 !== undefined && line.y1 !== undefined && line.x2 !== undefined && line.y2 !== undefined) {
+           px1 = line.x1; py1 = line.y1; px2 = line.x2; py2 = line.y2;
+        } else if (line.fromIndex !== undefined && line.toIndex !== undefined) {
+           const p1 = points[line.fromIndex];
+           const p2 = points[line.toIndex];
+           if (p1 && p2) {
+             px1 = p1.x; py1 = p1.y; px2 = p2.x; py2 = p2.y;
+           }
+        }
+        
+        if (px1 !== undefined && py1 !== undefined && px2 !== undefined && py2 !== undefined) {
+          drawLineBetween(ctx, { x: px1, y: py1, symbol: "bolinha" }, { x: px2, y: py2, symbol: "bolinha" }, color, ear === "OE");
         }
       });
 
@@ -245,74 +310,153 @@ export function GradeAudiometria() {
     renderCanvas("OE");
   }, [pointsOD, pointsOE, linesOD, linesOE, selectedPoint]);
 
-  // Manipulador disparado ao clicar no canvas de desenho interativo
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>, ear: "OD" | "OE") => {
-    const canvas = ear === "OD" ? canvasODRef.current : canvasOERef.current;
-    if (!canvas) return;
+  // Efeito colateral para informar o componente pai sempre que o estado da grade for atualizado
+  useEffect(() => {
+    if (onStateChange) {
+      onStateChange({
+        pointsOD,
+        pointsOE,
+        linesOD,
+        linesOE,
+      });
+    }
+  }, [pointsOD, pointsOE, linesOD, linesOE, onStateChange]);
 
-    // Obtém o retângulo do elemento canvas na tela do navegador
+  // Lógica da Ferramenta de Borracha (Apagar)
+  const eraseAt = (x: number, y: number, ear: "OD" | "OE") => {
+    const setPoints = ear === "OD" ? setPointsOD : setPointsOE;
+    const setLines = ear === "OD" ? setLinesOD : setLinesOE;
+
+    // 1. Tentar apagar pontos próximos (achando o mais próximo dentro de um raio de 15px)
+    setPoints((prevPoints) => {
+      let closestPointIndex = -1;
+      let minPointDist = 15; // Threshold máximo de 15px
+
+      prevPoints.forEach((p, idx) => {
+        const dist = Math.sqrt((p.x - x) ** 2 + (p.y - y) ** 2);
+        if (dist < minPointDist) {
+          minPointDist = dist;
+          closestPointIndex = idx;
+        }
+      });
+
+      if (closestPointIndex !== -1) {
+        // Se encontramos um ponto para apagar, NÃO apagamos as linhas,
+        // mas convertemos todas as linhas baseadas em índice para coordenadas absolutas
+        // pois a remoção deste ponto mudaria os índices do array.
+        setLines((prevLines) => {
+          return prevLines.map(l => {
+            if (l.x1 !== undefined) return l; // Já é baseada em coordenada
+            const p1 = prevPoints[l.fromIndex!];
+            const p2 = prevPoints[l.toIndex!];
+            if (!p1 || !p2) return l;
+            return { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y };
+          });
+        });
+        const newPoints = [...prevPoints];
+        newPoints.splice(closestPointIndex, 1);
+        return newPoints;
+      }
+      
+      // 2. Se não apagou ponto, tentar apagar linha (achando a mais próxima dentro de 12px)
+      setLines((prevLines) => {
+        let closestLineIndex = -1;
+        let minLineDist = 12; // Threshold máximo de 12px
+
+        prevLines.forEach((l, idx) => {
+          let px1, py1, px2, py2;
+          if (l.x1 !== undefined && l.y1 !== undefined && l.x2 !== undefined && l.y2 !== undefined) {
+             px1 = l.x1; py1 = l.y1; px2 = l.x2; py2 = l.y2;
+          } else if (l.fromIndex !== undefined && l.toIndex !== undefined) {
+             const p1 = prevPoints[l.fromIndex];
+             const p2 = prevPoints[l.toIndex];
+             if (!p1 || !p2) return;
+             px1 = p1.x; py1 = p1.y; px2 = p2.x; py2 = p2.y;
+          }
+
+          if (px1 !== undefined && py1 !== undefined && px2 !== undefined && py2 !== undefined) {
+            const dist = pointLineDistance(x, y, px1, py1, px2, py2);
+            if (dist < minLineDist) {
+              minLineDist = dist;
+              closestLineIndex = idx;
+            }
+          }
+        });
+        
+        if (closestLineIndex !== -1) {
+          const newLines = [...prevLines];
+          newLines.splice(closestLineIndex, 1);
+          return newLines;
+        }
+        return prevLines;
+      });
+      
+      return prevPoints;
+    });
+  };
+
+  const getCanvasCoordinates = (e: React.MouseEvent<HTMLCanvasElement>, canvas: HTMLCanvasElement) => {
     const rect = canvas.getBoundingClientRect();
-    // Calcula fatores de proporção para alinhar cliques com o tamanho lógico do canvas
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-
-    // Converte a posição do cursor em coordenadas lógicas internas
     const x = (e.clientX - rect.left) * scaleX;
     const rawY = (e.clientY - rect.top) * scaleY;
-    // Realiza o snap vertical
-    const y = snapYToGrid(rawY);
+    return { x, y: snapYToGrid(rawY), rawY };
+  };
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>, ear: "OD" | "OE") => {
+    if (drawMode === "apagar") {
+      setIsDragging(true);
+      const canvas = ear === "OD" ? canvasODRef.current : canvasOERef.current;
+      if (!canvas) return;
+      const { x, rawY } = getCanvasCoordinates(e, canvas);
+      eraseAt(x, rawY, ear); // Para apagar não precisa do snap vertical
+      return;
+    }
+    
+    // Lógica normal de desenho
+    const canvas = ear === "OD" ? canvasODRef.current : canvasOERef.current;
+    if (!canvas) return;
+    const { x, y } = getCanvasCoordinates(e, canvas);
 
     const points = ear === "OD" ? pointsOD : pointsOE;
     const setPoints = ear === "OD" ? setPointsOD : setPointsOE;
     const setLines = ear === "OD" ? setLinesOD : setLinesOE;
 
-    // Fluxo para o modo de conexão manual (Ligar)
     if (drawMode === "ligar") {
-      // Encontra se o clique ocorreu sobre um ponto existente (colisão de até 25px)
       const clickedPointIndex = points.findIndex(
         (p) => Math.sqrt((p.x - x) ** 2 + (p.y - y) ** 2) <= 25
       );
-
       if (clickedPointIndex !== -1) {
         if (selectedPoint === null) {
-          // Salva o ponto de partida
           setSelectedPoint({ ear, index: clickedPointIndex });
         } else {
-          if (selectedPoint.ear === ear) {
-            if (selectedPoint.index !== clickedPointIndex) {
-              // Registra snapshot no histórico antes de conectar
-              pushToHistory();
-              // Registra a nova conexão de linha
-              setLines((prev) => [
-                ...prev,
-                { fromIndex: selectedPoint.index, toIndex: clickedPointIndex },
-              ]);
-            }
+          if (selectedPoint.ear === ear && selectedPoint.index !== clickedPointIndex) {
+            const p1 = points[selectedPoint.index];
+            const p2 = points[clickedPointIndex];
+            setLines((prev) => [
+              ...prev,
+              { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y },
+            ]);
           }
-          // Reseta a seleção ativa
           setSelectedPoint(null);
         }
       } else {
         setSelectedPoint(null);
       }
     } else {
-      // Inserção padrão de novos símbolos clínicos
-      pushToHistory();
       const newPoint: Point = {
         x,
         y,
         symbol: drawMode as "bolinha" | "X" | "<" | ">",
       };
-
       setPoints((prev) => {
         const updated = [...prev, newPoint];
-        // Aplica conexão automática com o ponto imediatamente anterior se ativada
         if (autoConnect && prev.length > 0) {
-          const fromIndex = prev.length - 1;
-          const toIndex = updated.length - 1;
+          const lastPoint = prev[prev.length - 1];
           setLines((prevLines) => [
             ...prevLines,
-            { fromIndex, toIndex },
+            { x1: lastPoint.x, y1: lastPoint.y, x2: newPoint.x, y2: newPoint.y },
           ]);
         }
         return updated;
@@ -320,9 +464,20 @@ export function GradeAudiometria() {
     }
   };
 
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>, ear: "OD" | "OE") => {
+    if (!isDragging || drawMode !== "apagar") return;
+    const canvas = ear === "OD" ? canvasODRef.current : canvasOERef.current;
+    if (!canvas) return;
+    const { x, rawY } = getCanvasCoordinates(e, canvas);
+    eraseAt(x, rawY, ear);
+  };
+
+  const handleMouseUpOrLeave = () => {
+    setIsDragging(false);
+  };
+
   // Limpa inteiramente todas as informações e traçados de ambas as orelhas
   const clearCanvas = () => {
-    pushToHistory();
     setPointsOD([]);
     setPointsOE([]);
     setLinesOD([]);
@@ -334,16 +489,16 @@ export function GradeAudiometria() {
     <>
       {/* Cabeçalho da Grade contendo o título e a barra de ferramentas de desenho */}
       <div className="flex flex-col items-center mb-4 gap-5">
-        <div className="flex items-center text-blue-600 font-semibold print:hidden">
-          <Activity className="w-[26px] h-[26px] mr-3 print:hidden" />
-          <span className="uppercase tracking-widest text-[18px] print:text-xs items-center flex print:font-bold print:text-black">
+        <div className="flex items-center text-blue-600 font-semibold">
+          <Activity className="w-[26px] h-[26px] mr-3" />
+          <span className="uppercase tracking-widest text-[18px] items-center flex">
             Audiometria Tonal
           </span>
         </div>
       </div>
 
       {/* Barra de Ferramentas principal do Canvas interativo com flexibilidade total */}
-      <div className="flex flex-wrap items-center justify-center gap-[4px] p-[8px] rounded-lg border border-ios-divider print:hidden w-full lg:w-auto mx-auto lg:mx-0">
+      <div className="flex flex-wrap items-center justify-center gap-[4px] p-[8px] rounded-lg border border-ios-divider w-full lg:w-auto mx-auto lg:mx-0">
         
         {/* Toggle Switch para Conexão Automática */}
         <div className="flex items-center h-[46px] space-x-3.5 px-2 select-none">
@@ -414,17 +569,17 @@ export function GradeAudiometria() {
         {/* Divisor vertical discreto */}
         <div className="w-px h-[30px] bg-gray-300 mx-1.5 hidden sm:block"></div>
 
-        {/* Botão Desfazer (Undo) */}
+        {/* Botão de ferramenta: Borracha (Apagar) */}
         <button
-          disabled={history.length === 0}
-          onClick={handleUndo}
+          onClick={() => setDrawMode("apagar")}
           className={`flex items-center justify-center w-[46px] h-[46px] rounded-md transition-all ${
-            history.length === 0
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed opacity-50 border border-ios-divider"
-              : "bg-amber-50 text-amber-700 hover:bg-amber-100 active:scale-95 shadow-sm border border-amber-200"
+            drawMode === "apagar"
+              ? "bg-purple-500 text-white shadow-sm border border-purple-600"
+              : "text-ios-subtext hover:bg-gray-200 border border-transparent"
           }`}
+          title="Borracha"
         >
-          <Undo2 className="w-[20px] h-[20px]" />
+          <Eraser className="w-[20px] h-[20px]" />
         </button>
 
         {/* Botão de Limpeza Completa */}
@@ -437,7 +592,7 @@ export function GradeAudiometria() {
       </div>
 
       {/* Sistema de Abas Premium iOS Segmented Control */}
-      <div className="flex justify-center mb-6 mt-[10px] print:hidden">
+      <div className="flex justify-center mb-6 mt-[10px]">
         <div className="inline-flex p-1 rounded-full border border-gray-200 shadow-inner bg-gray-100/80">
           <button
             type="button"
@@ -465,58 +620,74 @@ export function GradeAudiometria() {
       </div>
 
       {/* Exibição dos Canvas das grades: alternado na tela e lado a lado na visualização impressa */}
-      <div className="flex flex-col items-center mt-6 print:grid print:grid-cols-2 print:gap-4 print:justify-items-center print:mt-4">
+      <div className="flex flex-col items-center mt-6">
         
         {/* Orelha Direita (Canvas Vermelho) */}
-        <div className={`flex flex-col items-center w-full max-w-[750px] print:max-w-[288px] ${activeTab === "OD" ? "flex" : "hidden print:flex"}`}>
-          <h3 className="text-center font-bold text-red-500 mb-3 text-sm tracking-widest print:text-[10px] print:mb-1">
+        <div className={`flex flex-col items-center w-full max-w-[750px]  ${activeTab === "OD" ? "flex" : "hidden "}`}>
+          <h3 className="text-center font-bold text-red-500 mb-3 text-sm tracking-widest">
             ORELHA DIREITA (OD)
           </h3>
-          <div className="relative border border-gray-300 shadow-sm overflow-hidden bg-white w-full rounded print:border-gray-300 print:border print:rounded-none print:shadow-none">
+          <div className="relative border border-gray-300 shadow-sm overflow-hidden bg-white w-full rounded">
             <img
               src={gradeImage}
               alt="Grade Audiometria"
-              className="absolute inset-0 w-full h-full object-fill pointer-events-none print:block"
+              className="absolute inset-0 w-full h-full object-fill pointer-events-none"
             />
             <canvas
               ref={canvasODRef}
               width={750}
               height={583}
-              className="relative z-10 cursor-crosshair w-full h-auto touch-none"
-              style={{ display: "block" }}
-              onMouseDown={(e) => startDrawing(e, "OD")}
+              className={`relative z-10 w-full h-auto touch-none`}
+              style={{
+                display: "block",
+                cursor: drawMode === "apagar" 
+                  ? "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='white' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21'/%3E%3Cpath d='M22 21H7'/%3E%3Cpath d='m5 11 9 9'/%3E%3C/svg%3E\") 0 24, auto"
+                  : "crosshair"
+              }}
+              onMouseDown={(e) => handleMouseDown(e, "OD")}
+              onMouseMove={(e) => handleMouseMove(e, "OD")}
+              onMouseUp={handleMouseUpOrLeave}
+              onMouseLeave={handleMouseUpOrLeave}
             />
           </div>
-          <p className="text-[10px] text-gray-400 mt-2 text-center w-full print:hidden">
+          <p className="text-[10px] text-gray-400 mt-2 text-center w-full">
             Cor do traço: Vermelho
           </p>
         </div>
 
         {/* Orelha Esquerda (Canvas Azul) */}
-        <div className={`flex flex-col items-center w-full max-w-[750px] print:max-w-[288px] ${activeTab === "OE" ? "flex" : "hidden print:flex"}`}>
-          <h3 className="text-center font-bold text-blue-500 mb-3 text-sm tracking-widest print:text-[10px] print:mb-1">
+        <div className={`flex flex-col items-center w-full max-w-[750px]  ${activeTab === "OE" ? "flex" : "hidden "}`}>
+          <h3 className="text-center font-bold text-blue-500 mb-3 text-sm tracking-widest">
             ORELHA ESQUERDA (OE)
           </h3>
-          <div className="relative border border-gray-300 shadow-sm overflow-hidden bg-white w-full rounded print:border-gray-300 print:border print:rounded-none print:shadow-none">
+          <div className="relative border border-gray-300 shadow-sm overflow-hidden bg-white w-full rounded">
             <img
               src={gradeImage}
               alt="Grade Audiometria"
-              className="absolute inset-0 w-full h-full object-fill pointer-events-none print:block"
+              className="absolute inset-0 w-full h-full object-fill pointer-events-none"
             />
             <canvas
               ref={canvasOERef}
               width={750}
               height={583}
-              className="relative z-10 cursor-crosshair w-full h-auto touch-none"
-              style={{ display: "block" }}
-              onMouseDown={(e) => startDrawing(e, "OE")}
+              className={`relative z-10 w-full h-auto touch-none`}
+              style={{
+                display: "block",
+                cursor: drawMode === "apagar" 
+                  ? "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='white' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21'/%3E%3Cpath d='M22 21H7'/%3E%3Cpath d='m5 11 9 9'/%3E%3C/svg%3E\") 0 24, auto"
+                  : "crosshair"
+              }}
+              onMouseDown={(e) => handleMouseDown(e, "OE")}
+              onMouseMove={(e) => handleMouseMove(e, "OE")}
+              onMouseUp={handleMouseUpOrLeave}
+              onMouseLeave={handleMouseUpOrLeave}
             />
           </div>
-          <p className="text-[10px] text-gray-400 mt-2 text-center w-full print:hidden">
+          <p className="text-[10px] text-gray-400 mt-2 text-center w-full">
             Cor do traço: Azul
           </p>
         </div>
       </div>
     </>
   );
-}
+});

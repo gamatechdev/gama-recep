@@ -116,7 +116,7 @@ const App: React.FC = () => {
           />
         );
       case "audiometriamenu":
-        return <AudiometriaMenu appointment={audiometriaAppointment} />;
+        return <AudiometriaMenu appointment={audiometriaAppointment} onClose={() => setActiveTab("chamada")} />;
       default:
         return <Dashboard />;
     }

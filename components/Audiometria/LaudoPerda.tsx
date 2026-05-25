@@ -242,14 +242,13 @@ export function LaudoPerda({
     <>
       {/* Wrapper principal do LaudoPerda (Ocultado se o modal de assinatura estiver ativo para visual livre de distrações) */}
       <div
-        className={`fixed -inset-6 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-md flex items-start justify-center p-4 sm:p-6 md:p-10 print:static print:bg-transparent print:p-0 print:overflow-visible ${
-          isEmployeeSigOpen ? "hidden" : ""
-        }`}
+        className={`fixed -inset-6 z-[100]  overflow-y-auto bg-slate-900/60 backdrop-blur-md flex items-start justify-center p-4 sm:p-6 md:p-10     ${isEmployeeSigOpen ? "hidden" : ""
+          }`}
       >
         {/* Container principal do Laudo com bordas arredondadas e sombra flutuante */}
-        <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden flex flex-col my-0 print:my-0 print:border-0 print:shadow-none print:rounded-none print:w-full">
+        <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden flex flex-col my-0">
           {/* Cabeçalho do painel de controle (Oculto ao imprimir) */}
-          <div className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-6 py-2 flex items-center justify-between shrink-0 print:hidden">
+          <div className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200 px-6 py-2 flex items-center justify-between shrink-0">
             <div className="flex items-center space-x-3">
               {/* Ícone representando o Termo de Perda */}
               <FileText className="w-6 h-6 text-ios-primary animate-pulse" />
@@ -270,86 +269,88 @@ export function LaudoPerda({
           </div>
 
           {/* Corpo principal do formulário com rolagem e espaçamento confortável */}
-          <div className="flex-1 p-8 md:p-12 space-y-8 bg-slate-50/50 print:bg-transparent print:p-0 print:space-y-4">
+          <div className="flex-1 p-8 md:p-12 space-y-8 bg-slate-50/50">
+            <div className="w-full text-center font-bold text-black"></div>
             {/* Título Oficial Centralizado do Laudo no Padrão Normativo */}
-            <div className="text-center space-y-2 border-b pb-6 border-slate-200 print:pb-3 print:border-gray-400">
+            <div className="text-center space-y-2 border-b pb-6 border-slate-200">
               {/* Título Principal em Negrito */}
-              <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-wide uppercase print:text-base print:text-black">
+              <div></div>
+              <h1 className="text-xl md:text-2xl font-black text-slate-800 tracking-wide uppercase">
                 Termo de Reconhecimento de Perda Auditiva
               </h1>
               {/* Subtítulo Normativo da NR 7 */}
-              <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest print:text-[10px] print:text-black">
+              <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest">
                 (NR 7 – Portaria 19, Anexo I)
               </h2>
             </div>
 
             {/* Seção 1: Dados de Identificação com Fundo Branco Arredondado */}
-            <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-6 shadow-sm relative overflow-hidden print:border-gray-300 print:rounded-none print:shadow-none print:p-3 print:mb-2">
+            <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-6 shadow-sm relative overflow-hidden">
               {/* Barra lateral de cor azul para dar um charme visual premium */}
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-primary rounded-l-xl print:hidden"></div>
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-primary rounded-l-xl"></div>
 
               {/* Título interno do bloco com ícone de usuário */}
-              <div className="flex items-center text-ios-primary font-bold border-b border-slate-100 pb-3 print:border-gray-400 print:pb-1 print:text-black">
-                <User className="w-5 h-5 mr-2 print:hidden" />
-                <span className="text-sm uppercase tracking-wider print:text-xs">
+              <div className="flex items-center text-ios-primary font-bold border-b border-slate-100 pb-3">
+                <User className="w-5 h-5 mr-2" />
+                <span className="text-sm uppercase tracking-wider">
                   Dados de Identificação do Colaborador
                 </span>
               </div>
 
               {/* Grid responsivo de campos de dados de preenchimento */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 print:gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Campo Nome */}
-                <div className="flex flex-col space-y-1.5 print:flex-row print:space-y-0 print:items-baseline print:gap-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider print:text-[9px] print:text-black print:min-w-[60px]">
+                <div className="flex flex-col space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                     Nome:
                   </label>
                   <input
                     type="text"
                     value={nome}
                     readOnly={true}
-                    className="px-3.5 py-2 bg-slate-100 border border-slate-200 rounded-lg focus:outline-none text-slate-500 cursor-not-allowed text-sm print:bg-transparent print:border-0 print:border-b print:border-gray-400 print:rounded-none print:px-0 print:py-0 print:text-[10px] print:text-black print:flex-1 font-semibold"
+                    className="px-3.5 py-2 bg-slate-100 border border-slate-200 rounded-lg focus:outline-none text-slate-500 cursor-not-allowed text-sm font-semibold"
                     placeholder="Nome Completo"
                   />
                 </div>
 
                 {/* Campo Documento */}
-                <div className="flex flex-col space-y-1.5 print:flex-row print:space-y-0 print:items-baseline print:gap-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider print:text-[9px] print:text-black print:min-w-[60px]">
+                <div className="flex flex-col space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                     Documento:
                   </label>
                   <input
                     type="text"
                     value={documento}
                     readOnly={true}
-                    className="px-3.5 py-2 bg-slate-100 border border-slate-200 rounded-lg focus:outline-none text-slate-500 cursor-not-allowed text-sm print:bg-transparent print:border-0 print:border-b print:border-gray-400 print:rounded-none print:px-0 print:py-0 print:text-[10px] print:text-black print:flex-1 font-semibold"
+                    className="px-3.5 py-2 bg-slate-100 border border-slate-200 rounded-lg focus:outline-none text-slate-500 cursor-not-allowed text-sm font-semibold"
                     placeholder="CPF ou RG"
                   />
                 </div>
 
                 {/* Campo Empresa */}
-                <div className="flex flex-col space-y-1.5 print:flex-row print:space-y-0 print:items-baseline print:gap-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider print:text-[9px] print:text-black print:min-w-[60px]">
+                <div className="flex flex-col space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                     Empresa:
                   </label>
                   <input
                     type="text"
                     value={empresa}
                     readOnly={true}
-                    className="px-3.5 py-2 bg-slate-100 border border-slate-200 rounded-lg focus:outline-none text-slate-500 cursor-not-allowed text-sm print:bg-transparent print:border-0 print:border-b print:border-gray-400 print:rounded-none print:px-0 print:py-0 print:text-[10px] print:text-black print:flex-1 font-semibold"
+                    className="px-3.5 py-2 bg-slate-100 border border-slate-200 rounded-lg focus:outline-none text-slate-500 cursor-not-allowed text-sm font-semibold"
                     placeholder="Nome da Empresa"
                   />
                 </div>
 
                 {/* Campo Função */}
-                <div className="flex flex-col space-y-1.5 print:flex-row print:space-y-0 print:items-baseline print:gap-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider print:text-[9px] print:text-black print:min-w-[60px]">
+                <div className="flex flex-col space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                     Função:
                   </label>
                   <input
                     type="text"
                     value={funcao}
                     readOnly={true}
-                    className="px-3.5 py-2 bg-slate-100 border border-slate-200 rounded-lg focus:outline-none text-slate-500 cursor-not-allowed text-sm print:bg-transparent print:border-0 print:border-b print:border-gray-400 print:rounded-none print:px-0 print:py-0 print:text-[10px] print:text-black print:flex-1 font-semibold"
+                    className="px-3.5 py-2 bg-slate-100 border border-slate-200 rounded-lg focus:outline-none text-slate-500 cursor-not-allowed text-sm font-semibold"
                     placeholder="Cargo/Função"
                   />
                 </div>
@@ -357,26 +358,26 @@ export function LaudoPerda({
             </div>
 
             {/* Seção 2: Declaração Principal e Alterações de Ouvido */}
-            <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-6 shadow-sm relative overflow-hidden print:border-gray-300 print:rounded-none print:shadow-none print:p-3 print:mb-2">
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-primary rounded-l-xl print:hidden"></div>
+            <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-6 shadow-sm relative overflow-hidden">
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-primary rounded-l-xl"></div>
 
               {/* Texto de Declaração de Ciência */}
-              <div className="text-slate-700 text-sm md:text-base leading-relaxed flex flex-wrap items-baseline gap-1 print:text-[10px] print:text-black print:leading-normal">
+              <div className="text-slate-700 text-sm md:text-base leading-relaxed flex flex-wrap items-baseline gap-1">
                 <span>
                   Declaro que estou ciente que houve no exame audiométrico
                 </span>
                 {/* Exibe o tipo de exame de forma fixa e elegante, sem dropdown interativo */}
-                <span className=" px-1">
+                <span className="px-1">
                   {tipoExame || appointment?.tipo || "admissional"}
                 </span>
                 <span>, onde foi detectada alteração:</span>
               </div>
 
               {/* Quadro de Orelhas e Tipos de Alterações Clínicas (OD / OE) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-2 print:gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-2">
                 {/* Orelha Direita (OD) */}
-                <div className="border border-slate-100 rounded-xl p-4 bg-slate-50/30 print:border-gray-300 print:rounded-none print:p-2">
-                  <div className="flex items-center space-x-2.5 mb-4 border-b pb-2 border-slate-100 print:mb-1.5 print:pb-0.5 print:border-gray-200">
+                <div className="border border-slate-100 rounded-xl p-4 bg-slate-50/30">
+                  <div className="flex items-center space-x-2.5 mb-4 border-b pb-2 border-slate-100">
                     {/* Checkbox interativo para indicar se OD tem alteração */}
                     <input
                       type="checkbox"
@@ -388,20 +389,20 @@ export function LaudoPerda({
                           checked: e.target.checked,
                         })
                       }
-                      className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary accent-ios-primary print:w-3.5 print:h-3.5"
+                      className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary accent-ios-primary"
                     />
                     <label
                       htmlFor="od-check"
-                      className="text-sm font-extrabold text-red-600 uppercase tracking-widest cursor-pointer select-none print:text-[10px] print:text-black"
+                      className="text-sm font-extrabold text-red-600 uppercase tracking-widest cursor-pointer select-none"
                     >
                       Orelha Direita (OD)
                     </label>
                   </div>
 
                   {/* Sub-opções de alteração para OD */}
-                  <div className="space-y-2.5 pl-6 print:space-y-1.5">
+                  <div className="space-y-2.5 pl-6">
                     {/* Neurosensorial */}
-                    <label className="flex items-center space-x-2.5 cursor-pointer text-sm text-slate-700 select-none print:text-[9px] print:text-black">
+                    <label className="flex items-center space-x-2.5 cursor-pointer text-sm text-slate-700 select-none">
                       <input
                         type="checkbox"
                         disabled={!odAlterations.checked}
@@ -412,7 +413,7 @@ export function LaudoPerda({
                             neurosensorial: e.target.checked,
                           })
                         }
-                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary print:w-3 print:h-3"
+                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary"
                       />
                       <span
                         className={
@@ -426,7 +427,7 @@ export function LaudoPerda({
                     </label>
 
                     {/* Condutiva */}
-                    <label className="flex items-center space-x-2.5 cursor-pointer text-sm text-slate-700 select-none print:text-[9px] print:text-black">
+                    <label className="flex items-center space-x-2.5 cursor-pointer text-sm text-slate-700 select-none">
                       <input
                         type="checkbox"
                         disabled={!odAlterations.checked}
@@ -437,7 +438,7 @@ export function LaudoPerda({
                             condutiva: e.target.checked,
                           })
                         }
-                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary print:w-3 print:h-3"
+                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary"
                       />
                       <span
                         className={
@@ -451,7 +452,7 @@ export function LaudoPerda({
                     </label>
 
                     {/* Mista */}
-                    <label className="flex items-center space-x-2.5 cursor-pointer text-sm text-slate-700 select-none print:text-[9px] print:text-black">
+                    <label className="flex items-center space-x-2.5 cursor-pointer text-sm text-slate-700 select-none">
                       <input
                         type="checkbox"
                         disabled={!odAlterations.checked}
@@ -462,7 +463,7 @@ export function LaudoPerda({
                             mista: e.target.checked,
                           })
                         }
-                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary print:w-3 print:h-3"
+                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary"
                       />
                       <span
                         className={
@@ -476,7 +477,7 @@ export function LaudoPerda({
                     </label>
 
                     {/* Presença de cerume */}
-                    <label className="flex items-center space-x-2.5 cursor-pointer text-sm text-slate-700 select-none print:text-[9px] print:text-black">
+                    <label className="flex items-center space-x-2.5 cursor-pointer text-sm text-slate-700 select-none">
                       <input
                         type="checkbox"
                         disabled={!odAlterations.checked}
@@ -487,7 +488,7 @@ export function LaudoPerda({
                             cerume: e.target.checked,
                           })
                         }
-                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary print:w-3 print:h-3"
+                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary"
                       />
                       <span
                         className={
@@ -503,8 +504,8 @@ export function LaudoPerda({
                 </div>
 
                 {/* Orelha Esquerda (OE) */}
-                <div className="border border-slate-100 rounded-xl p-4 bg-slate-50/30 print:border-gray-300 print:rounded-none print:p-2">
-                  <div className="flex items-center space-x-2.5 mb-4 border-b pb-2 border-slate-100 print:mb-1.5 print:pb-0.5 print:border-gray-200">
+                <div className="border border-slate-100 rounded-xl p-4 bg-slate-50/30">
+                  <div className="flex items-center space-x-2.5 mb-4 border-b pb-2 border-slate-100">
                     {/* Checkbox interativo para indicar se OE tem alteração */}
                     <input
                       type="checkbox"
@@ -516,20 +517,20 @@ export function LaudoPerda({
                           checked: e.target.checked,
                         })
                       }
-                      className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary accent-ios-primary print:w-3.5 print:h-3.5"
+                      className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary accent-ios-primary"
                     />
                     <label
                       htmlFor="oe-check"
-                      className="text-sm font-extrabold text-blue-600 uppercase tracking-widest cursor-pointer select-none print:text-[10px] print:text-black"
+                      className="text-sm font-extrabold text-blue-600 uppercase tracking-widest cursor-pointer select-none"
                     >
                       Orelha Esquerda (OE)
                     </label>
                   </div>
 
                   {/* Sub-opções de alteração para OE */}
-                  <div className="space-y-2.5 pl-6 print:space-y-1.5">
+                  <div className="space-y-2.5 pl-6">
                     {/* Neurosensorial */}
-                    <label className="flex items-center space-x-2.5 cursor-pointer text-sm text-slate-700 select-none print:text-[9px] print:text-black">
+                    <label className="flex items-center space-x-2.5 cursor-pointer text-sm text-slate-700 select-none">
                       <input
                         type="checkbox"
                         disabled={!oeAlterations.checked}
@@ -540,7 +541,7 @@ export function LaudoPerda({
                             neurosensorial: e.target.checked,
                           })
                         }
-                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary print:w-3 print:h-3"
+                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary"
                       />
                       <span
                         className={
@@ -554,7 +555,7 @@ export function LaudoPerda({
                     </label>
 
                     {/* Condutiva */}
-                    <label className="flex items-center space-x-2.5 cursor-pointer text-sm text-slate-700 select-none print:text-[9px] print:text-black">
+                    <label className="flex items-center space-x-2.5 cursor-pointer text-sm text-slate-700 select-none">
                       <input
                         type="checkbox"
                         disabled={!oeAlterations.checked}
@@ -565,7 +566,7 @@ export function LaudoPerda({
                             condutiva: e.target.checked,
                           })
                         }
-                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary print:w-3 print:h-3"
+                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary"
                       />
                       <span
                         className={
@@ -579,7 +580,7 @@ export function LaudoPerda({
                     </label>
 
                     {/* Mista */}
-                    <label className="flex items-center space-x-2.5 cursor-pointer text-sm text-slate-700 select-none print:text-[9px] print:text-black">
+                    <label className="flex items-center space-x-2.5 cursor-pointer text-sm text-slate-700 select-none">
                       <input
                         type="checkbox"
                         disabled={!oeAlterations.checked}
@@ -590,7 +591,7 @@ export function LaudoPerda({
                             mista: e.target.checked,
                           })
                         }
-                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary print:w-3 print:h-3"
+                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary"
                       />
                       <span
                         className={
@@ -604,7 +605,7 @@ export function LaudoPerda({
                     </label>
 
                     {/* Presença de cerume */}
-                    <label className="flex items-center space-x-2.5 cursor-pointer text-sm text-slate-700 select-none print:text-[9px] print:text-black">
+                    <label className="flex items-center space-x-2.5 cursor-pointer text-sm text-slate-700 select-none">
                       <input
                         type="checkbox"
                         disabled={!oeAlterations.checked}
@@ -615,7 +616,7 @@ export function LaudoPerda({
                             cerume: e.target.checked,
                           })
                         }
-                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary print:w-3 print:h-3"
+                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary"
                       />
                       <span
                         className={
@@ -633,132 +634,132 @@ export function LaudoPerda({
             </div>
 
             {/* Nova Seção Separada: Card para Detalhamento de Perda Auditiva por Frequência */}
-            <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 shadow-sm relative overflow-hidden print:border-gray-300 print:rounded-none print:shadow-none print:p-3 print:mb-2">
-                {/* Barra de cor decorativa na lateral esquerda do card */}
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-primary rounded-l-xl print:hidden"></div>
+            <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 shadow-sm relative overflow-hidden">
+              {/* Barra de cor decorativa na lateral esquerda do card */}
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-primary rounded-l-xl"></div>
 
-                {/* Título de identificação da nova seção de Perda Auditiva */}
-                <div className="flex items-center text-ios-primary font-bold border-b border-slate-100 pb-3 print:border-gray-400 print:pb-1 print:text-black">
-                  {/* Ícone de representação visual do bloco */}
-                  <FileText className="w-5 h-5 mr-2 print:hidden" />
-                  {/* Texto do rótulo da seção */}
-                  <span className="text-sm uppercase tracking-wider print:text-xs">
-                    Perda Auditiva
-                  </span>
-                </div>
-
-                {/* Contêiner de seleção para perda auditiva específica por frequência em cada orelha */}
-                <div className="text-slate-700 text-sm md:text-base leading-relaxed flex flex-wrap items-center gap-6 print:text-[10px] print:text-black print:leading-normal">
-                  {/* Grupo de inputs e rótulo para a Orelha Direita (OD) */}
-                  <div className="flex items-center space-x-3">
-                    {/* Rótulo em negrito indicando orelha direita e cor vermelha característica */}
-                    <span className="font-bold print:text-black">Perda Auditiva <span className="text-red-600 ml-5">OD:</span></span>
-                    {/* Opção para frequência de 6000Hz na Orelha Direita */}
-                    <label className="flex items-center space-x-1.5 cursor-pointer select-none">
-                      {/* Elemento do input checkbox para controle de frequência 6000Hz no OD */}
-                      <input
-                        type="checkbox"
-                        // Controla se a opção 6000Hz da orelha direita está checada (independente do card de alterações clínicas acima)
-                        checked={odAlterations.h6000}
-                        // Atualiza a chave h6000 mantendo o restante do estado da orelha direita intacto
-                        onChange={(e) =>
-                          setOdAlterations({
-                            ...odAlterations,
-                            h6000: e.target.checked,
-                          })
-                        }
-                        // Classes do Tailwind para estilização em tela e na impressão
-                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary print:w-3 print:h-3"
-                      />
-                      {/* Texto informativo de frequência */}
-                      <span className="font-medium">6000Hz</span>
-                    </label>
-                    {/* Opção para frequência de 8000Hz na Orelha Direita */}
-                    <label className="flex items-center space-x-1.5 cursor-pointer select-none">
-                      {/* Elemento do input checkbox para controle de frequência 8000Hz no OD */}
-                      <input
-                        type="checkbox"
-                        // Controla se a opção 8000Hz da orelha direita está checada (independente do card de alterações clínicas acima)
-                        checked={odAlterations.h8000}
-                        // Atualiza a chave h8000 mantendo o restante do estado da orelha direita intacto
-                        onChange={(e) =>
-                          setOdAlterations({
-                            ...odAlterations,
-                            h8000: e.target.checked,
-                          })
-                        }
-                        // Classes do Tailwind para estilização em tela e na impressão
-                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary print:w-3 print:h-3"
-                      />
-                      {/* Texto informativo de frequência */}
-                      <span className="font-medium">8000Hz</span>
-                    </label>
-                  </div>
-
-                  {/* Grupo de inputs e rótulo para a Orelha Esquerda (OE) */}
-                  <div className="flex items-center space-x-3">
-                    {/* Rótulo em negrito indicando orelha esquerda e cor azul característica */}
-                    <span className="font-bold text-blue-600 print:text-black">OE:</span>
-                    {/* Opção para frequência de 6000Hz na Orelha Esquerda */}
-                    <label className="flex items-center space-x-1.5 cursor-pointer select-none">
-                      {/* Elemento do input checkbox para controle de frequência 6000Hz no OE */}
-                      <input
-                        type="checkbox"
-                        // Controla se a opção 6000Hz da orelha esquerda está checada (independente do card de alterações clínicas acima)
-                        checked={oeAlterations.h6000}
-                        // Atualiza a chave h6000 mantendo o restante do estado da orelha esquerda intacto
-                        onChange={(e) =>
-                          setOeAlterations({
-                            ...oeAlterations,
-                            h6000: e.target.checked,
-                          })
-                        }
-                        // Classes do Tailwind para estilização em tela e na impressão
-                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary print:w-3 print:h-3"
-                      />
-                      {/* Texto informativo de frequência */}
-                      <span className="font-medium">6000Hz</span>
-                    </label>
-                    {/* Opção para frequência de 8000Hz na Orelha Esquerda */}
-                    <label className="flex items-center space-x-1.5 cursor-pointer select-none">
-                      {/* Elemento do input checkbox para controle de frequência 8000Hz no OE */}
-                      <input
-                        type="checkbox"
-                        // Controla se a opção 8000Hz da orelha esquerda está checada (independente do card de alterações clínicas acima)
-                        checked={oeAlterations.h8000}
-                        // Atualiza a chave h8000 mantendo o restante do estado da orelha esquerda intacto
-                        onChange={(e) =>
-                          setOeAlterations({
-                            ...oeAlterations,
-                            h8000: e.target.checked,
-                          })
-                        }
-                        // Classes do Tailwind para estilização em tela e na impressão
-                        className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary print:w-3 print:h-3"
-                      />
-                      {/* Texto informativo de frequência */}
-                      <span className="font-medium">8000Hz</span>
-                    </label>
-                  </div>
-                </div>
+              {/* Título de identificação da nova seção de Perda Auditiva */}
+              <div className="flex items-center text-ios-primary font-bold border-b border-slate-100 pb-3">
+                {/* Ícone de representação visual do bloco */}
+                <FileText className="w-5 h-5 mr-2" />
+                {/* Texto do rótulo da seção */}
+                <span className="text-sm uppercase tracking-wider">
+                  Perda Auditiva
+                </span>
               </div>
 
-            {/* Seção 3: Observações do Laudo com Textarea Interativo */}
-            <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-3 shadow-sm relative overflow-hidden print:border-gray-300 print:rounded-none print:shadow-none print:p-3 print:mb-2">
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-primary rounded-l-xl print:hidden"></div>
+              {/* Contêiner de seleção para perda auditiva específica por frequência em cada orelha */}
+              <div className="text-slate-700 text-sm md:text-base leading-relaxed flex flex-wrap items-center gap-6">
+                {/* Grupo de inputs e rótulo para a Orelha Direita (OD) */}
+                <div className="flex items-center space-x-3">
+                  {/* Rótulo em negrito indicando orelha direita e cor vermelha característica */}
+                  <span className="font-bold">Perda Auditiva <span className="text-red-600 ml-5">OD:</span></span>
+                  {/* Opção para frequência de 6000Hz na Orelha Direita */}
+                  <label className="flex items-center space-x-1.5 cursor-pointer select-none">
+                    {/* Elemento do input checkbox para controle de frequência 6000Hz no OD */}
+                    <input
+                      type="checkbox"
+                      // Controla se a opção 6000Hz da orelha direita está checada (independente do card de alterações clínicas acima)
+                      checked={odAlterations.h6000}
+                      // Atualiza a chave h6000 mantendo o restante do estado da orelha direita intacto
+                      onChange={(e) =>
+                        setOdAlterations({
+                          ...odAlterations,
+                          h6000: e.target.checked,
+                        })
+                      }
+                      // Classes do Tailwind para estilização em tela e na impressão
+                      className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary"
+                    />
+                    {/* Texto informativo de frequência */}
+                    <span className="font-medium">6000Hz</span>
+                  </label>
+                  {/* Opção para frequência de 8000Hz na Orelha Direita */}
+                  <label className="flex items-center space-x-1.5 cursor-pointer select-none">
+                    {/* Elemento do input checkbox para controle de frequência 8000Hz no OD */}
+                    <input
+                      type="checkbox"
+                      // Controla se a opção 8000Hz da orelha direita está checada (independente do card de alterações clínicas acima)
+                      checked={odAlterations.h8000}
+                      // Atualiza a chave h8000 mantendo o restante do estado da orelha direita intacto
+                      onChange={(e) =>
+                        setOdAlterations({
+                          ...odAlterations,
+                          h8000: e.target.checked,
+                        })
+                      }
+                      // Classes do Tailwind para estilização em tela e na impressão
+                      className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary"
+                    />
+                    {/* Texto informativo de frequência */}
+                    <span className="font-medium">8000Hz</span>
+                  </label>
+                </div>
 
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider print:text-[9px] print:text-black">
+                {/* Grupo de inputs e rótulo para a Orelha Esquerda (OE) */}
+                <div className="flex items-center space-x-3">
+                  {/* Rótulo em negrito indicando orelha esquerda e cor azul característica */}
+                  <span className="font-bold text-blue-600">OE:</span>
+                  {/* Opção para frequência de 6000Hz na Orelha Esquerda */}
+                  <label className="flex items-center space-x-1.5 cursor-pointer select-none">
+                    {/* Elemento do input checkbox para controle de frequência 6000Hz no OE */}
+                    <input
+                      type="checkbox"
+                      // Controla se a opção 6000Hz da orelha esquerda está checada (independente do card de alterações clínicas acima)
+                      checked={oeAlterations.h6000}
+                      // Atualiza a chave h6000 mantendo o restante do estado da orelha esquerda intacto
+                      onChange={(e) =>
+                        setOeAlterations({
+                          ...oeAlterations,
+                          h6000: e.target.checked,
+                        })
+                      }
+                      // Classes do Tailwind para estilização em tela e na impressão
+                      className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary"
+                    />
+                    {/* Texto informativo de frequência */}
+                    <span className="font-medium">6000Hz</span>
+                  </label>
+                  {/* Opção para frequência de 8000Hz na Orelha Esquerda */}
+                  <label className="flex items-center space-x-1.5 cursor-pointer select-none">
+                    {/* Elemento do input checkbox para controle de frequência 8000Hz no OE */}
+                    <input
+                      type="checkbox"
+                      // Controla se a opção 8000Hz da orelha esquerda está checada (independente do card de alterações clínicas acima)
+                      checked={oeAlterations.h8000}
+                      // Atualiza a chave h8000 mantendo o restante do estado da orelha esquerda intacto
+                      onChange={(e) =>
+                        setOeAlterations({
+                          ...oeAlterations,
+                          h8000: e.target.checked,
+                        })
+                      }
+                      // Classes do Tailwind para estilização em tela e na impressão
+                      className="w-4 h-4 text-ios-primary border-slate-300 rounded focus:ring-ios-primary disabled:opacity-40 accent-ios-primary"
+                    />
+                    {/* Texto informativo de frequência */}
+                    <span className="font-medium">8000Hz</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Seção 3: Observações do Laudo com Textarea Interativo */}
+            <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-3 shadow-sm relative overflow-hidden">
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-primary rounded-l-xl"></div>
+
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                 OBS:
               </label>
               <div className="flex-1 flex flex-col">
                 <textarea
                   value={observacoes}
                   onChange={(e) => setObservacoes(e.target.value)}
-                  className="w-full min-h-[80px] p-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 text-sm resize-y custom-scrollbar print:hidden"
+                  className="w-full min-h-[80px] p-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 text-sm resize-y custom-scrollbar"
                   placeholder="Descreva quaisquer observações clínicas adicionais do laudo..."
                 />
                 {/* Layout de linhas de pauta de observações estilizado exclusivamente para impressão */}
-                <div className="hidden print:flex flex-col w-full text-[10px] text-black">
+                <div className="hidden flex-col w-full text-[10px] text-black">
                   <div className="border-b border-gray-400 min-h-[1.2rem] py-0.5 px-1 font-medium">
                     {observacoes || "Nenhuma observação clínica registrada."}
                   </div>
@@ -768,7 +769,7 @@ export function LaudoPerda({
             </div>
 
             {/* Seção 4: Bloco de Texto Normativo Final */}
-            <div className="bg-slate-100/50 border border-slate-200/60 rounded-xl p-6 text-slate-600 text-sm leading-relaxed text-justify print:bg-transparent print:border-0 print:p-0 print:text-[10px] print:text-black print:leading-normal print:text-justify">
+            <div className="bg-slate-100/50 border border-slate-200/60 rounded-xl p-6 text-slate-600 text-sm leading-relaxed text-justify">
               Declaro ainda que, fui orientado (a) quanto a obrigatoriedade do
               uso contínuo dos Protetores Auditivos, dos riscos que estarei
               exposto e dos cuidados que deverei ter com a audição estando
@@ -777,7 +778,7 @@ export function LaudoPerda({
             </div>
 
             {/* Seção 5: Cidade e Data Atual com Formatação Dinâmica por Extenso */}
-            <div className="flex items-center text-slate-800 text-sm font-semibold pt-2 print:text-[10px] print:text-black print:pt-4">
+            <div className="flex items-center text-slate-800 text-sm font-semibold pt-2">
               <span className="tracking-wide">
                 Conselheiro Lafaiete,{" "}
                 <span className="underline font-bold px-1">{dia}</span> de{" "}
@@ -786,8 +787,10 @@ export function LaudoPerda({
               </span>
             </div>
 
+
+
             {/* Seção 6: Assinaturas Delimitadas em Duas Colunas */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-8 print:grid-cols-2 print:gap-12 print:pt-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-8">
               {/* Assinatura do Examinador (Fonoaudióloga) */}
               <div className="flex flex-col items-center justify-end">
                 {/* Imagem física de assinatura da examinadora com escala calibrada */}
@@ -797,23 +800,23 @@ export function LaudoPerda({
                   className="h-14 object-contain mb-1"
                 />
                 {/* Linha delimitadora da assinatura no laudo */}
-                <div className="w-full max-w-[280px] border-b border-slate-400 mb-2 print:border-black"></div>
+                <div className="w-full max-w-[280px] border-b border-slate-400 mb-2"></div>
                 {/* Bloco de Rótulo identificativo do profissional e Conselho */}
-                <div className="flex flex-col items-center space-y-0.5 text-center">
-                  <span className="text-xs font-black text-slate-800 uppercase tracking-wide print:text-[8px] print:text-black">
-                    Jordânia G. S. Rodrigues
+                <div className="flex flex-col items-center space-y-0.5 text-center h-[36px] justify-start mt-1">
+                  <span className="text-xs font-black text-slate-800 uppercase tracking-wide">
+                    Kátia
                   </span>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider print:text-[7px] print:text-black">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                     FONOAUDIÓLOGA - CRFa-MG 4566
                   </span>
-                  <span className="text-[9px] font-semibold text-slate-400 uppercase print:text-[6px] print:text-black">
+                  <span className="text-[9px] font-semibold text-slate-400 uppercase">
                     Assinatura e carimbo do examinador
                   </span>
                 </div>
               </div>
 
               {/* Assinatura do Funcionário/Colaborador (Interativa com Modal) */}
-              <div className="flex flex-col items-center pt-1">
+              <div className="flex flex-col items-center pt-1 justify-end h-full">
                 {employeeSignature ? (
                   // Exibe a assinatura capturada no modal
                   <div className="relative group flex flex-col items-center">
@@ -826,7 +829,7 @@ export function LaudoPerda({
                     <button
                       type="button"
                       onClick={() => setIsEmployeeSigOpen(true)}
-                      className="absolute -top-3 -right-6 p-1 bg-white hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-full border border-gray-200 shadow-sm transition-all active:scale-90 print:hidden animate-bounce"
+                      className="absolute -top-3 -right-6 p-1 bg-white hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-full border border-gray-200 shadow-sm transition-all active:scale-90 animate-bounce"
                       title="Refazer assinatura"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -837,7 +840,7 @@ export function LaudoPerda({
                   <button
                     type="button"
                     onClick={() => setIsEmployeeSigOpen(true)}
-                    className="flex flex-col items-center group focus:outline-none transition-all active:scale-95 mb-1 print:hidden"
+                    className="flex flex-col items-center group focus:outline-none transition-all active:scale-95 mb-1"
                     title="Clique para assinar"
                   >
                     {/* Ícone de caneta do lucide-react para clique com transição estilizada */}
@@ -850,20 +853,23 @@ export function LaudoPerda({
 
                 {/* Espaço reservado invisível para manter altura harmônica no laudo técnico impresso */}
                 {!employeeSignature && (
-                  <div className="hidden print:block h-14  w-full"></div>
+                  <div className="hidden h-14 w-full"></div>
                 )}
 
                 {/* Linha delimitadora da assinatura do colaborador */}
-                <div className="w-full max-w-[280px] border-b border-slate-400 mb-2 print:border-black"></div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center print:text-[8px] print:text-black">
-                  Assinatura do Funcionário
-                </span>
+                <div className="w-full max-w-[280px] border-b border-slate-400 mb-2"></div>
+
+                <div className="flex flex-col items-center h-[36px] justify-start mt-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">
+                    Assinatura do Funcionário
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Rodapé do Modal com Botões de Controle e Ações Especiais (Oculto na Impressão) */}
-          <div className="bg-slate-50 border-t border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 print:hidden">
+          <div className="bg-slate-50 border-t border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
             {/* Botão de Fechar */}
             <button
               type="button"
@@ -898,15 +904,7 @@ export function LaudoPerda({
                 Confirmar Termo
               </button>
 
-              {/* Botão de Impressão Direta do Termo */}
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="px-6 py-2.5 rounded-lg bg-ios-primary text-white hover:bg-ios-primary/95 shadow-md shadow-ios-primary/20 active:scale-95 transition-all text-xs font-bold flex items-center"
-              >
-                <Printer className="w-4 h-4 mr-2" />
-                Imprimir Termo
-              </button>
+
             </div>
           </div>
         </div>

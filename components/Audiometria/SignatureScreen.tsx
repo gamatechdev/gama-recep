@@ -23,8 +23,7 @@ export function SignatureScreen({ isOpen, onClose, onSave }: SignatureScreenProp
   const startSignatureDrawing = (
     e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
   ) => {
-    // Evita comportamentos de rolagem ou arrasto nativos de páginas móveis
-    e.preventDefault();
+    // O bloqueio de rolagem é garantido pela classe CSS 'touch-none' no elemento canvas.
     // Obtém o elemento canvas da referência
     const canvas = signatureCanvasRef.current;
     if (!canvas) return;
@@ -77,8 +76,7 @@ export function SignatureScreen({ isOpen, onClose, onSave }: SignatureScreenProp
   ) => {
     // Se a flag de desenho ativo for falsa, ignora o movimento
     if (!isDrawingSignature) return;
-    // Impede rolagens da tela em celulares durante a caligrafia
-    e.preventDefault();
+    // O CSS com 'touch-none' já impede rolagens nativas em celulares durante a caligrafia.
 
     // Obtém o canvas da referência
     const canvas = signatureCanvasRef.current;
@@ -146,7 +144,7 @@ export function SignatureScreen({ isOpen, onClose, onSave }: SignatureScreenProp
 
   return (
     // Backdrop escurecido desfocado ocupando a totalidade da tela visível
-    <div className="fixed -inset-6 z-[90] h-full flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-0 print:hidden">
+    <div className="fixed -inset-6 z-[90] h-full flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-0">
       {/* Contêiner da caixa do modal responsiva com classe de rotação forçada em celular */}
       <div className="mobile-force-landscape bg-white rounded-2xl shadow-2xl border border-slate-200 w-[90%] md:w-[80%] max-w-4xl h-[85vh] md:h-[75vh] flex flex-col overflow-hidden transition-all duration-300 transform scale-100">
         

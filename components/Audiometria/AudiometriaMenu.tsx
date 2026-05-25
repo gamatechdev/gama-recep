@@ -1,8 +1,10 @@
 import React, { useState } from "react";
-// Remoção do import do lucide-react pois o cabeçalho de abas foi removido
+// Importamos o ícone de atividade do Lucide para o botão flutuante de testes
+import { Activity } from "lucide-react";
 import { Audiometria } from "./Audiometria";
 import { Anamnese } from "./Anamnese";
 import { Agendamento } from "../../types";
+import gamaicon from "../ui/grade/gamaicon.png";
 
 // Interface para os dados cadastrais do paciente compartilhados entre as abas
 export interface PatientData {
@@ -30,10 +32,12 @@ export interface PatientData {
 interface AudiometriaMenuProps {
   // Dados do agendamento carregados
   appointment?: Agendamento | null;
+  // Função para fechar o menu e voltar à tela anterior
+  onClose?: () => void;
 }
 
 // Componente de menu principal que gerencia as abas da área de exames audiométricos e anamnese
-export function AudiometriaMenu({ appointment }: AudiometriaMenuProps) {
+export function AudiometriaMenu({ appointment, onClose }: AudiometriaMenuProps) {
   // Estado para controlar a aba ativa (audiometria por padrão)
   const [activeTab, setActiveTab] = useState< "anamnese" |"audiometria">(
     "anamnese",
@@ -66,27 +70,43 @@ export function AudiometriaMenu({ appointment }: AudiometriaMenuProps) {
     repouso: "",
   });
 
+  // Estado das respostas do questionário da Anamnese compartilhado com a impressão do PDF
+  const [anamneseAnswers, setAnamneseAnswers] = useState<Record<string, string>>({});
+    // Dispara a atualização do trigger local para que a tela de audiometria saiba que deve mockar seus dados internos
   return (
-    <div className="w-full space-y-6  ">
-      {/* Conteúdo Dinâmico */}
-      <div className="animate-in fade-in slide-in-from-bottom-4  duration-500">
-        {activeTab === "audiometria" ? (
-          // Renderiza a ficha de audiometria passando o estado comum de cadastro do paciente
-          <Audiometria
-            appointment={appointment}
-            patientData={patientData}
-            setPatientData={setPatientData}
-          />
-        ) : (
-          // Renderiza o questionário de anamnese passando o mesmo estado comum de cadastro do paciente
-          // Adiciona a prop onSaveSuccess para navegar automaticamente para audiometria ao salvar
+    // Container principal da página de exames
+    <div className="w-full space-y-6">
+      <div className="relative">
+        {/* Painel da Anamnese: visível na tela quando a aba ativa for "anamnese" */}
+        <div className={`animate-in fade-in duration-500 ${activeTab === "anamnese" ? "block" : "hidden"}`}>
           <Anamnese
             appointment={appointment}
             patientData={patientData}
             setPatientData={setPatientData}
+            answers={anamneseAnswers}
+            setAnswers={setAnamneseAnswers}
             onSaveSuccess={() => setActiveTab("audiometria")}
           />
-        )}
+        </div>
+
+        {/* Painel da Audiometria: visível na tela quando a aba ativa for "audiometria" */}
+        <div className={`animate-in fade-in duration-500 ${activeTab === "audiometria" ? "block" : "hidden"}`}>
+          {/* Componente Audiometria recebendo propriedades cadastrais, respostas e funções de atualização */}
+          <Audiometria
+            // Dados do agendamento carregados do banco de dados
+            appointment={appointment}
+            // Estado contendo os dados cadastrais em tempo real do paciente
+            patientData={patientData}
+            // Função para atualizar os dados cadastrais do paciente de forma global
+            setPatientData={setPatientData}
+            // Respostas do formulário de anamnese
+            anamneseAnswers={anamneseAnswers}
+            // Callback disparado ao acionar o botão de retornar
+            onBack={() => setActiveTab("anamnese")}
+            // Callback disparado quando o documento for salvo com sucesso
+            onSaveSuccess={onClose}
+          />
+        </div>
       </div>
     </div>
   );
