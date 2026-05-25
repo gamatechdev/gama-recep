@@ -307,8 +307,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   const [examSearchTerm, setExamSearchTerm] = useState('');
 
   // New Fields: Forms and Observations
-  // Define o estado inicial da lista de formulários selecionados como vazia
-  const [selectedFormularios, setSelectedFormularios] = useState<string[]>([]);
+  // Define o estado inicial da lista de formulários selecionados com Ficha Clínica e Prontuário Médico como default
+  const [selectedFormularios, setSelectedFormularios] = useState<string[]>(['FICHA_CLINICA', 'PRONTUARIO_MEDICO']);
   const [obsClinica, setObsClinica] = useState('');
   const [obsLaboratorial, setObsLaboratorial] = useState('');
   const [asoQtdCobrar, setAsoQtdCobrar] = useState(0);
@@ -550,12 +550,12 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     // Verifica se o formulário correspondente já está na lista dos selecionados
     if (selectedFormularios.includes(formValue)) {
       // Remove o formulário da seleção caso já estivesse marcado
-      setSelectedFormularios(selectedFormularios.filter(f => f !== formValue));
+      setSelectedFormularios(prev => prev.filter(f => f !== formValue));
       // Se houver exames associados a esse formulário, remove-os da lista de exames também
       setSelectedExams(prev => prev.filter(e => !examesAssociados.includes(e)));
     } else {
       // Insere o formulário na lista dos selecionados caso não estivesse marcado
-      setSelectedFormularios([...selectedFormularios, formValue]);
+      setSelectedFormularios(prev => [...prev, formValue]);
       // Se houver exames associados a esse formulário, adiciona-os à lista de exames automaticamente
       setSelectedExams(prev => [...new Set([...prev, ...examesAssociados])]);
     }
@@ -683,8 +683,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   const clearFields = () => {
     setColabFormData({ nome: '', cpf: '', data_nascimento: '', sexo: 'M', setor: '', funcao: '' });
     setSelectedExams([]);
-    // Limpa a lista de formulários selecionados deixando-a vazia
-    setSelectedFormularios([]);
+    // Restaura a lista de formulários selecionados para o padrão (Ficha Clínica e Prontuário)
+    setSelectedFormularios(['FICHA_CLINICA', 'PRONTUARIO_MEDICO']);
     setObsClinica(''); setObsLaboratorial(''); setSelectedColabId('');
     setColabSearchTerm(''); setUnitSearchTerm('');
     setAppointmentData(prev => ({ ...prev, unidade: '' }));
