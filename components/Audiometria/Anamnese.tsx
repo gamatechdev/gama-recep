@@ -4,9 +4,9 @@ import React, { useState } from "react";
 import { ClipboardList, User, Activity, Save } from "lucide-react";
 // Importa o tipo Agendamento usado na aplicação
 import { Agendamento } from "../../types";
-// Importa o tipo PatientData compartilhado entre exames
 import { PatientData } from "./AudiometriaMenu";
 import { ChevronDown, Plus, Minus } from "lucide-react";
+import { AudiomPopup } from "./AdiomPopup";
 
 // Define a interface das propriedades recebidas pelo componente
 interface AnamneseProps {
@@ -38,21 +38,213 @@ export function Anamnese({
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
   };
 
+  // Estado para controlar o PopUp de validação
+  const [popupConfig, setPopupConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: "error" | "success";
+    onConfirm?: () => void;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "error",
+  });
+
+  const showError = (message: string) => {
+    setPopupConfig({
+      isOpen: true,
+      title: "Atenção",
+      message,
+      type: "error",
+    });
+  };
+
+  // Função de validação e salvamento
+  const handleSave = () => {
+    // 1. Validar Dados do Paciente
+    if (!patientData?.empresa || !patientData?.funcao || !patientData?.nome || !patientData?.dataExame) {
+      showError("Dados do Paciente: Por favor, preencha todos os dados obrigatórios (Empresa, Função, Nome e Data).");
+      return;
+    }
+
+    // 2. Validar Q1 e subopções
+    if (!answers.q1) {
+      showError("Questão 1: Por favor, responda se já realizou exame audiométrico anteriormente.");
+      return;
+    }
+    if (answers.q1 === "sim") {
+      if (!answers.q1_result) {
+        showError("Questão 1 (Condicional): Você marcou 'Sim'. Por favor, informe o resultado do exame anterior (Normal ou Alterado).");
+        return;
+      }
+      if (answers.q1_result === "alterado" && !answers.q1_ear) {
+        showError("Questão 1 (Condicional 2): O resultado foi 'Alterado'. Por favor, informe em qual ouvido o exame deu alterado.");
+        return;
+      }
+    }
+
+    // 3. Validar Q2 e tempo
+    // Verifica se a resposta principal da questão 2 foi selecionada
+    if (!answers.q2) {
+      // Exibe pop-up de erro solicitando resposta para a Q2
+      showError("Questão 2: Por favor, responda se trabalha ou já trabalhou exposto ao ruído.");
+      // Interrompe a execução do salvamento
+      return;
+    }
+    // Caso a resposta principal seja "sim", valida as condicionais relacionadas ao tempo
+    if (answers.q2 === "sim") {
+      // Exige o preenchimento do valor numérico do tempo de exposição ao ruído
+      if (!answers.q2_tempo_val) {
+        // Exibe erro informando que o tempo numérico de exposição é obrigatório
+        showError("Questão 2 (Condicional): Você marcou 'Sim'. Por favor, informe o tempo numérico de exposição ao ruído.");
+        // Interrompe a execução do salvamento
+        return;
+      }
+      // Se a unidade de tempo estiver vazia no estado, define o padrão "anos" para consistência dos dados salvos
+      if (!answers.q2_tempo_unidade) {
+        // Define "anos" como unidade padrão no próprio objeto answers
+        answers.q2_tempo_unidade = "anos";
+      }
+    }
+
+    // 4. Validar Q3 e tipo
+    if (!answers.q3) {
+      showError("Questão 3: Por favor, responda se usa ou já usou protetor no ouvido.");
+      return;
+    }
+    if (answers.q3 === "sim" && !answers.q3_type) {
+      showError("Questão 3 (Condicional): Você marcou 'Sim'. Por favor, informe qual o tipo de protetor utilizado (Plug, Concha ou Ambos).");
+      return;
+    }
+
+    // 5. Validar Q4 (Hábitos)
+    if (answers.q4_moto !== "sim" && answers.q4_fone !== "sim" && answers.q4_musico !== "sim" && answers.q4_nenhum !== "sim") {
+      showError("Questão 4: Por favor, responda se possui algum dos hábitos listados (se não possuir, marque a opção 'Nenhum').");
+      return;
+    }
+
+    // 6. Validar Q8 e ouvido
+    if (!answers.q8) {
+      showError("Questão 8: Por favor, responda se já realizou cirurgia no ouvido.");
+      return;
+    }
+    if (answers.q8 === "sim" && !answers.q8_ear) {
+      showError("Questão 8 (Condicional): Você marcou 'Sim'. Por favor, informe em qual ouvido realizou a cirurgia.");
+      return;
+    }
+
+    // 7. Validar Q9 e ouvido
+    if (!answers.q9) {
+      showError("Questão 9: Por favor, responda se já sofreu algum trauma no ouvido.");
+      return;
+    }
+    if (answers.q9 === "sim" && !answers.q9_ear) {
+      showError("Questão 9 (Condicional): Você marcou 'Sim'. Por favor, informe em qual ouvido sofreu o trauma.");
+      return;
+    }
+
+    // 8. Validar Q11 (Doenças)
+    if (answers.q11_hipertensao !== "sim" && answers.q11_diabetes !== "sim" && answers.q11_cardiacos !== "sim" && answers.q11_nenhum !== "sim" && !answers.q11_outros) {
+      showError("Questão 11: Por favor, responda se possui alguma doença listada (se não possuir, marque 'Nenhum' ou especifique em 'Outros').");
+      return;
+    }
+
+    // 9. Validar Q12 (Tontura) e frequência
+    // Verifica se a resposta principal da questão 12 foi selecionada
+    if (!answers.q12_tontura) {
+      // Exibe pop-up de erro solicitando resposta para a Q12
+      showError("Questão 12: Por favor, responda se apresenta tontura.");
+      // Interrompe a execução do salvamento
+      return;
+    }
+    // Caso a resposta principal seja "sim", valida as condicionais de frequência da tontura
+    if (answers.q12_tontura === "sim") {
+      // Exige o preenchimento do valor numérico da frequência de tontura
+      if (!answers.q12_frequencia_val) {
+        // Exibe erro informando que o valor numérico da frequência é obrigatório
+        showError("Questão 12 (Condicional): Você marcou 'Sim'. Por favor, informe a frequência numérica da tontura.");
+        // Interrompe a execução do salvamento
+        return;
+      }
+      // Se a unidade de frequência estiver vazia no estado, define o padrão "horas" para consistência dos dados salvos
+      if (!answers.q12_frequencia_unidade) {
+        // Define "horas" como unidade padrão no próprio objeto answers
+        answers.q12_frequencia_unidade = "horas";
+      }
+    }
+
+    // 10. Validar Q13 (Zumbido)
+    if (!answers.q13) {
+      showError("Questão 13: Por favor, responda se apresenta zumbido.");
+      return;
+    }
+    if (answers.q13 === "sim") {
+      if (!answers.q13_ear) {
+        showError("Questão 13 (Condicional 1): Você marcou 'Sim'. Por favor, informe em qual ouvido apresenta o zumbido.");
+        return;
+      }
+      if (!answers.q13_frequencia) {
+        showError("Questão 13 (Condicional 2): Você informou o ouvido do zumbido, mas falta informar qual a Frequência dele.");
+        return;
+      }
+    }
+
+    // 11. Validar Q14 (Família) e parentesco
+    if (!answers.q14) {
+      showError("Questão 14: Por favor, responda se tem casos de problemas auditivos na família.");
+      return;
+    }
+    if (answers.q14 === "sim" && !answers.q14_parentesco?.trim()) {
+      showError("Questão 14 (Condicional): Você marcou 'Sim'. Por favor, informe o grau de parentesco.");
+      return;
+    }
+
+    // 12. Validar Q15 (Objeto limpeza) e qual
+    if (!answers.q15) {
+      showError("Questão 15: Por favor, responda se usa algum objeto para limpar o ouvido.");
+      return;
+    }
+    if (answers.q15 === "sim") {
+      if (!answers.q15_object) {
+        showError("Questão 15 (Condicional 1): Você marcou 'Sim'. Por favor, informe qual objeto usa para limpar o ouvido.");
+        return;
+      }
+      if (answers.q15_object === "outro" && !answers.q15_outro_text?.trim()) {
+        showError("Questão 15 (Condicional 2): Você marcou 'Outro'. Por favor, especifique na caixa de texto qual é o objeto.");
+        return;
+      }
+    }
+
+    // Se chegou até aqui, está tudo válido
+    setPopupConfig({
+      isOpen: true,
+      title: "Sucesso",
+      message: "Anamnese salva com sucesso!",
+      type: "success",
+      onConfirm: () => {
+        setPopupConfig((prev) => ({ ...prev, isOpen: false }));
+        if (onSaveSuccess) onSaveSuccess();
+      },
+    });
+  };
+
   // Inicia o retorno da estrutura JSX
   return (
     // Container principal da página, com preenchimento superior zerado para elevar ao máximo o cabeçalho
 
-    <table className="w-full border-collapse block print:table print:-mt-[14px]">
-      <thead className="hidden print:table-header-group">
+    <table className="w-full border-collapse block">
+      <thead className="hidden">
         <tr>
         
         </tr>
       </thead>
-      <tbody className="block print:table-row-group">
-        <tr className="block print:table-row">
-          <td className="block print:table-cell align-top">
+      <tbody className="block">
+        <tr className="block">
+          <td className="block align-top">
 
-            <div className="w-full max-w-5xl mx-auto pt-0 px-4 pb-4 sm:pt-0 sm:px-6 sm:pb-6 lg:pt-0 lg:px-8 lg:pb-8 space-y-6 print:p-0  print:m-0 print:space-y-0 print:space-y-1 print:max-w-none print:w-auto ">
+            <div className="w-full max-w-5xl mx-auto pt-0 px-4 pb-4 sm:pt-0 sm:px-6 sm:pb-6 lg:pt-0 lg:px-8 lg:pb-8 space-y-6">
 
               <style>{`
         @media print {
@@ -62,7 +254,7 @@ export function Anamnese({
       `}</style>
 
               {/* Cabeçalho que só aparece durante a impressão */}
-              <div className="hidden print:block text-center mb-4 ">
+              <div className="hidden text-center mb-4">
                 {/* Título do documento impresso */}
                 <h1 className="text-xl font-bold uppercase pb-2 tracking-widest text-black print">
                   Anamnese Ocupacional
@@ -70,9 +262,9 @@ export function Anamnese({
               </div>
 
               {/* Cabeçalho superior na visualização de tela normal, posicionado com margem negativa para aproximar do topo */}
-              <div className="glass-panel p-6 rounded-ios shadow-float border border-ios-primary/20 flex items-center justify-center bg-white/80 print:hidden -mt-4 lg:-mt-8">
+              <div className="glass-panel p-6 rounded-ios shadow-float border border-ios-primary/20 flex items-center justify-center bg-white/80 -mt-4 lg:-mt-8">
                 {/* Ícone de prancheta representativo de formulário */}
-                <ClipboardList className="w-8 h-8 print:border-0  text-ios-primary mr-3" />
+                <ClipboardList className="w-8 h-8 text-ios-primary mr-3" />
                 {/* Título em destaque na tela */}
                 <h1 className="text-2xl font-bold text-ios-text tracking-tight uppercase">
                   Anamnese Ocupacional
@@ -80,23 +272,23 @@ export function Anamnese({
               </div>
 
               {/* Bloco 1: Dados de identificação do paciente */}
-              <div className="bg-white rounded-ios shadow-sm border border-gray-400 p-6 space-y-4 print:space-y-1 relative overflow-hidden print:border-gray-300 print:border print:rounded-none print:shadow-none print:p-3  print:break-inside-avoid">
+              <div className="bg-white rounded-ios shadow-sm border border-gray-400 p-6 space-y-4 relative overflow-hidden">
                 {/* Faixa colorida lateral decorativa para a tela */}
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-primary rounded-l-ios print:hidden"></div>
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-primary rounded-l-ios"></div>
 
                 {/* Título da seção Dados do Paciente */}
-                <div className="flex items-center text-ios-primary font-semibold mb-4 pb-2   print:text-black print:justify-start">
-                  <User className="w-5 h-5 mr-2 print:hidden" />
-                  <span className="print:text-xs print:font-bold uppercase">
+                <div className="flex items-center text-ios-primary font-semibold mb-4 pb-2">
+                  <User className="w-5 h-5 mr-2" />
+                  <span className="uppercase">
                     Dados do Paciente
                   </span>
                 </div>
 
                 {/* Grid para organizar os campos em colunas */}
-                <div className="grid grid-cols-1 md:grid-cols-2 print:grid print:grid-cols-2 gap-4 print:gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Empresa - primeira coluna, primeira linha no PDF */}
-                  <div className="print:flex print:flex-row print:items-center print:gap-2 print:space-y-0 flex flex-col  print:items-start print:space-y-0">
-                    <span className="text-xs font-medium text-gray-600 mb-1 uppercase tracking-wider print:text-black print:min-w-[60px]  print:whitespace-nowrap">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-gray-600 mb-1 uppercase tracking-wider">
                       Empresa:
                     </span>
                     <input
@@ -106,14 +298,14 @@ export function Anamnese({
                         setPatientData &&
                         setPatientData((prev) => ({ ...prev, empresa: e.target.value }))
                       }
-                      className="px-3 py-2 bg-ios-bg border-b border-gray-400 focus:outline-none focus:border-ios-primary focus:ring-1 transition-all text-sm print:bg-transparent print:border-0 print:border-b print:p-0 print:py-0 print:text-[11px] print:text-black print:flex-1"
+                      className="px-3 py-2 bg-ios-bg border-b border-gray-400 focus:outline-none focus:border-ios-primary focus:ring-1 transition-all text-sm"
                       placeholder="Nome da Empresa"
                     />
                   </div>
 
                   {/* Funcao - segunda coluna, primeira linha no PDF */}
-                  <div className="print:flex print:flex-row print:items-center print:gap-2 print:space-y-0 flex flex-col  print:items-start print:space-y-0">
-                    <label className="text-xs font-medium text-gray-600 mb-1 uppercase tracking-wider print:text-black print:min-w-[55px]  print:whitespace-nowrap">
+                  <div className="flex flex-col">
+                    <label className="text-xs font-medium text-gray-600 mb-1 uppercase tracking-wider">
                       Função:
                     </label>
                     <input
@@ -123,14 +315,14 @@ export function Anamnese({
                         setPatientData &&
                         setPatientData((prev) => ({ ...prev, funcao: e.target.value }))
                       }
-                      className="px-3 py-2 bg-ios-bg border-b border-gray-400 focus:outline-none focus:border-ios-primary focus:ring-1 transition-all text-sm print:bg-transparent print:border-0 print:border-b print:p-0 print:py-0 print:text-[11px] print:text-black print:flex-1"
+                      className="px-3 py-2 bg-ios-bg border-b border-gray-400 focus:outline-none focus:border-ios-primary focus:ring-1 transition-all text-sm"
                       placeholder="Função do Colaborador"
                     />
                   </div>
 
                   {/* Nome - primeira coluna, segunda linha no PDF */}
-                  <div className="print:flex print:flex-row print:items-center print:gap-2 print:space-y-0 flex flex-col  print:items-start print:space-y-0">
-                    <label className="text-xs font-medium text-gray-600 mb-1 uppercase tracking-wider print:text-black print:min-w-[50px]  print:whitespace-nowrap">
+                  <div className="flex flex-col">
+                    <label className="text-xs font-medium text-gray-600 mb-1 uppercase tracking-wider">
                       Nome:
                     </label>
                     <input
@@ -140,14 +332,14 @@ export function Anamnese({
                         setPatientData &&
                         setPatientData((prev) => ({ ...prev, nome: e.target.value }))
                       }
-                      className="px-3 py-2 bg-ios-bg border-b border-gray-400 focus:outline-none focus:border-ios-primary focus:ring-1 transition-all text-sm print:bg-transparent print:border-0 print:border-b print:p-0 print:py-0 print:text-[11px] print:text-black print:flex-1"
+                      className="px-3 py-2 bg-ios-bg border-b border-gray-400 focus:outline-none focus:border-ios-primary focus:ring-1 transition-all text-sm"
                       placeholder="Nome completo"
                     />
                   </div>
 
                   {/* Data - segunda coluna, segunda linha no PDF */}
-                  <div className="print:flex print:flex-row print:items-center print:gap-2 print:space-y-0 flex flex-col  print:items-start print:space-y-0">
-                    <label className="text-xs font-medium text-gray-600 mb-1 uppercase tracking-wider print:text-black print:min-w-[50px]  print:whitespace-nowrap">
+                  <div className="flex flex-col">
+                    <label className="text-xs font-medium text-gray-600 mb-1 uppercase tracking-wider">
                       Data:
                     </label>
                     <input
@@ -160,32 +352,32 @@ export function Anamnese({
                           dataExame: e.target.value,
                         }))
                       }
-                      className="px-3 py-2 bg-ios-bg border-b border-gray-400 focus:outline-none focus:border-ios-primary focus:ring-1 transition-all text-sm print:bg-transparent print:border-0 print:border-b print:p-0 print:py-0 print:text-[11px] print:text-black print:flex-1"
+                      className="px-3 py-2 bg-ios-bg border-b border-gray-400 focus:outline-none focus:border-ios-primary focus:ring-1 transition-all text-sm"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Bloco 2: Questionário da Anamnese */}
-              <div className="bg-white rounded-ios shadow-sm border border-gray-400 p-6 space-y-5 relative overflow-hidden print:border-gray-300 print:border print:rounded-none print:shadow-none print:p-3   text-ios-text print:text-black">
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-secondary rounded-l-ios print:hidden"></div>
+              <div className="bg-white rounded-ios shadow-sm border border-gray-400 p-6 space-y-5 relative overflow-hidden text-ios-text">
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-secondary rounded-l-ios"></div>
 
-                <div className="flex items-center text-ios-secondary font-semibold mb-2 border-b border-gray-400 pb-2 print:hidden">
+                <div className="flex items-center text-ios-secondary font-semibold mb-2 border-b border-gray-400 pb-2">
                   <Activity className="w-5 h-5 mr-2" />
                   <span className="uppercase">Questionário</span>
                 </div>
 
                 {/* Agrupa as questões com espaçamento consistente e maior legibilidade */}
-                <div className="space-y-6 print:space-y-2">
+                <div className="space-y-6">
                   {/* Pergunta 1: Exame audiométrico anterior */}
-                  <div className="flex flex-col space-y-4 print:space-y-1 print:-mt-0">
-                    <div className="print:flex print:flex-row print:items-center print:justify-start print:gap-2 flex flex-col space-y-3 print:space-y-0">
-                    <span className="text-sm font-bold text-ios-text print:text-xs print:whitespace-nowrap ">
+                  <div className="flex flex-col space-y-4">
+                    <div className="flex flex-col space-y-3">
+                    <span className="text-sm font-bold text-ios-text">
                       Já realizou exame audiométrico anteriormente?
                     </span>
-                    <div className="grid grid-cols-2  sm:grid-cols-4 gap-3 print:flex print:flex-row print:justify-start print:gap-2 print:items-center print:w-auto">
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="radio"
                             name="q1"
@@ -196,12 +388,12 @@ export function Anamnese({
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">Sim</span>
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">Sim</span>
                       </label>
 
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="radio"
                             name="q1"
@@ -212,22 +404,22 @@ export function Anamnese({
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">Não</span>
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">Não</span>
                       </label>
                     </div>
                     </div>
 
                     {/* Campos condicionais para Exame Anterior */}
                     {answers.q1 === "sim" && (
-                      <div className="pl-3 space-y-4 print:space-y-1 print:p-0 print:m-0 print:border-0 border-l-2 border-gray-400 ml-2 print:pl-2 print:space-y-1 animate-in fade-in slide-in-from-left-2 duration-300 print:border-l print:border-gray-200 print:ml-2">
-                        <div className="flex flex-col print:p-0 print:m-0 space-y-3 print:space-y-0 print:flex print:flex-row print:items-center print:gap-2">  {/* print>border-l-0 remove bordas */}
-                          <span className="text-sm text-gray-600 print:text-xs print:whitespace-nowrap  ">
+                      <div className="pl-3 space-y-4 border-l-2 border-gray-400 ml-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                        <div className="flex flex-col space-y-3">  {/* print>border-l-0 remove bordas */}
+                          <span className="text-sm text-gray-600">
                             Se respondeu 'sim', qual o resultado?
                           </span>
-                          <div className="flex gap-3 print:flex print:flex-row print:justify-start print:gap-2 print:items-center print:w-auto">
-                            <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                              <div className="relative flex items-center  justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                          <div className="flex gap-3">
+                            <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                              <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                                 <input
                                   type="radio"
                                   name="q1_result"
@@ -238,16 +430,16 @@ export function Anamnese({
                                   }
                                   className="peer sr-only"
                                 />
-                                <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 print:-ml-4 peer-checked:scale-100 transition-transform duration-200"></div>
+                                <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                               </div>
-                              <span className="hidden print:inline   text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                              <span className="text-sm font-medium  print:text-xs ">
+                              <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                              <span className="text-sm font-medium">
                                 Normal
                               </span>
                             </label>
 
-                            <label className="group flex items-center  space-x-3 print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                              <div className="relative flex items-center justify-center  w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                            <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                              <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                                 <input
                                   type="radio"
                                   name="q1_result"
@@ -256,25 +448,25 @@ export function Anamnese({
                                   onChange={(e) =>
                                     handleAnswerChange("q1_result", e.target.value)
                                   }
-                                  className="peer sr-only "
+                                  className="peer sr-only"
                                 />
-                                <div className="w-3 h-3 rounded-full  bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
+                                <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                               </div>
-                              <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                              <span className="text-sm font-medium print:text-xs">
+                              <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                              <span className="text-sm font-medium">
                                 Alterado
                               </span>
                             </label>
                           </div>
                         </div>
 
-                        <div className="flex flex-col space-y-3 print:space-y-0 print:flex print:flex-row print:items-center print:gap-2">
-                          <span className="text-sm text-gray-600 print:text-xs print:whitespace-nowrap">
+                        <div className="flex flex-col space-y-3">
+                          <span className="text-sm text-gray-600">
                             Se alterado, em qual ouvido?
                           </span>
-                          <div className="flex flex-wrap gap-3 print:flex print:flex-row print:justify-start print:gap-2 print:items-center print:w-auto">
-                            <label className="group flex items-center space-x-3  print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                              <div className="relative flex items-center  justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                          <div className="flex flex-wrap gap-3">
+                            <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                              <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                                 <input
                                   type="radio"
                                   name="q1_ear"
@@ -287,14 +479,14 @@ export function Anamnese({
                                 />
                                 <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                               </div>
-                              <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                              <span className="text-sm font-medium print:text-xs">
+                              <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                              <span className="text-sm font-medium">
                                 OD
                               </span>
                             </label>
 
-                            <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                              <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                            <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                              <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                                 <input
                                   type="radio"
                                   name="q1_ear"
@@ -307,14 +499,14 @@ export function Anamnese({
                                 />
                                 <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                               </div>
-                              <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                              <span className="text-sm font-medium print:text-xs">
+                              <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                              <span className="text-sm font-medium">
                                 OE
                               </span>
                             </label>
 
-                            <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                              <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                            <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                              <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                                 <input
                                   type="radio"
                                   name="q1_ear"
@@ -327,8 +519,8 @@ export function Anamnese({
                                 />
                                 <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                               </div>
-                              <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                              <span className="text-sm font-medium print:text-xs">
+                              <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                              <span className="text-sm font-medium">
                                 Ambos
                               </span>
                             </label>
@@ -339,30 +531,44 @@ export function Anamnese({
                   </div>
 
                   {/* Pergunta 2: Exposição ao ruído */}
-                  <div className="flex flex-col space-y-4 print:space-y-1 ">
-                    <div className="print:flex print:flex-row print:flex-nowrap print:items-center print:justify-start print:gap-2 flex flex-col space-y-3 print:space-y-0">
-                    <span className="text-sm font-bold text-ios-text print:text-xs print:whitespace-nowrap">
+                  <div className="flex flex-col space-y-4">
+                    <div className="flex flex-col space-y-3">
+                    <span className="text-sm font-bold text-ios-text">
                       Trabalha ou já trabalhou exposto ao ruído?
                     </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:flex print:flex-row print:justify-start print:gap-2 print:items-center print:w-auto">
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
+                            // Define o tipo do input como rádio
                             type="radio"
+                            // Atribui o nome da questão de exposição a ruído
                             name="q2"
+                            // Define o valor deste rádio como "sim"
                             value="sim"
+                            // Marca o rádio se a resposta no estado for igual a "sim"
                             checked={answers.q2 === "sim"}
-                            onChange={(e) => handleAnswerChange("q2", e.target.value)}
+                            // Evento disparado quando o usuário escolhe a opção "Sim"
+                            onChange={(e) => {
+                              // Atualiza o estado principal da questão q2 para "sim"
+                              handleAnswerChange("q2", e.target.value);
+                              // Caso a unidade de tempo da exposição não exista no estado, inicializa com "anos"
+                              if (!answers.q2_tempo_unidade) {
+                                // Define a unidade padrão como "anos" no estado
+                                handleAnswerChange("q2_tempo_unidade", "anos");
+                              }
+                            }}
+                            // Classe Tailwind CSS para esconder o input nativo mantendo-o acessível
                             className="peer sr-only"
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">Sim</span>
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">Sim</span>
                       </label>
 
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="radio"
                             name="q2"
@@ -373,59 +579,97 @@ export function Anamnese({
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">Não</span>
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">Não</span>
                       </label>
                     </div>
                     {answers.q2 === "sim" && (
-                      <div className="pl-3 print:p-0 print:m-0 print:border-0 flex flex-col space-y-2 print:space-y-0 print:flex print:flex-row print:items-center print:gap-1 animate-in fade-in slide-in-from-left-2 duration-300 print:ml-0">
-                        <span className="text-sm print:p-0 print:m-0 print:border-0 text-gray-600 print:text-xs print:whitespace-nowrap">
+                      <div className="pl-3 flex flex-col space-y-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                        <span className="text-sm text-gray-600">
                           Por quanto tempo?
                         </span>
 
-                        <div className="flex items-center print:gap-0 print:shadow-none print:rounded-none print:w-auto w-full max-w-[250px] border border-gray-300 print:border-0 rounded-xl focus-within:ring-4 focus-within:ring-ios-primary/10 focus-within:border-ios-primary transition-all overflow-hidden shadow-sm">
+                        {/* Container com bordas e flexbox para alinhar os controles de incremento, input e unidade */}
+                        <div className="flex items-center w-full max-w-[250px] border border-gray-300 rounded-xl focus-within:ring-4 focus-within:ring-ios-primary/10 focus-within:border-ios-primary transition-all overflow-hidden shadow-sm">
                           <button
+                            // Define o botão como botão para evitar submit acidental
                             type="button"
+                            // Ação ao clicar no botão de decrementar
                             onClick={() => {
+                              // Obtém o valor numérico atual ou assume 0 se for vazio/inválido
                               const valorAtual = parseInt(answers.q2_tempo_val || "0", 10) || 0;
+                              // Garante que o novo valor não seja inferior a zero
                               const novoValor = Math.max(0, valorAtual - 1);
+                              // Atualiza o valor numérico do tempo no estado de respostas
                               handleAnswerChange("q2_tempo_val", String(novoValor));
+                              // Se a unidade de tempo da exposição não estiver definida no estado, define como "anos"
+                              if (!answers.q2_tempo_unidade) {
+                                // Grava a unidade "anos" no estado
+                                handleAnswerChange("q2_tempo_unidade", "anos");
+                              }
                             }}
-                            className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-200/50 hover:text-gray-700 active:scale-90 transition-all font-semibold print:hidden"
+                            // Classes visuais e efeitos de hover e cliques para o botão de menos
+                            className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-200/50 hover:text-gray-700 active:scale-90 transition-all font-semibold"
                           >
-                            <Minus className="w-4 h-4 print:hidden" />
+                            {/* Ícone de menos */}
+                            <Minus className="w-4 h-4" />
                           </button>
                           <input
+                            // Define o input como campo de número
                             type="number"
+                            // Define o valor mínimo do campo como zero
                             min={0}
+                            // Atribui o valor do estado ou string vazia para evitar inputs não controlados
                             value={answers.q2_tempo_val || ""}
-                            onChange={(e) => handleAnswerChange("q2_tempo_val", e.target.value)}
-                            className="w-12 text-center print:text-right print:w-[15px] print:max-w-[15px] print:p-0 print:m-0 bg-transparent border-0 outline-none text-sm print:text-xs text-gray-800 font-bold focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            // Evento disparado quando o usuário digita no input
+                            onChange={(e) => {
+                              // Atualiza o valor numérico do tempo no estado de respostas
+                              handleAnswerChange("q2_tempo_val", e.target.value);
+                              // Garante que a unidade de tempo esteja preenchida com a padrão caso esteja ausente
+                              if (!answers.q2_tempo_unidade) {
+                                // Grava a unidade "anos" no estado
+                                handleAnswerChange("q2_tempo_unidade", "anos");
+                              }
+                            }}
+                            // Classes Tailwind para visual limpo e sem setas nativas do input number
+                            className="w-12 text-center bg-transparent border-0 outline-none text-sm text-gray-800 font-bold focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            // Placeholder textual mostrando zero
                             placeholder="0"
                           />
                           <button
+                            // Define como tipo de botão normal
                             type="button"
+                            // Ação ao clicar no botão de incrementar
                             onClick={() => {
+                              // Obtém o valor numérico atual ou assume 0 se for vazio/inválido
                               const valorAtual = parseInt(answers.q2_tempo_val || "0", 10) || 0;
+                              // Soma uma unidade ao valor numérico atual
                               const novoValor = valorAtual + 1;
+                              // Atualiza o valor numérico do tempo no estado de respostas
                               handleAnswerChange("q2_tempo_val", String(novoValor));
+                              // Garante que a unidade de tempo esteja definida com "anos" caso esteja ausente
+                              if (!answers.q2_tempo_unidade) {
+                                // Grava a unidade "anos" no estado
+                                handleAnswerChange("q2_tempo_unidade", "anos");
+                              }
                             }}
-                            className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-200/50 hover:text-gray-700 active:scale-90 transition-all border-r print:border-0 border-gray-300 print:hidden"
+                            // Classes visuais e efeitos para o botão de mais
+                            className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-200/50 hover:text-gray-700 active:scale-90 transition-all border-r border-gray-300"
                           >
-                            <Plus className="w-4 h-4 print:hidden" />
+                            <Plus className="w-4 h-4" />
                           </button>
-                          <div className="relative flex items-center pr-0 print:p-0 print:m-0 print:ml-1">
+                          <div className="relative flex items-center pr-0">
                             <select
                               value={answers.q2_tempo_unidade || "anos"}
                               onChange={(e) => handleAnswerChange("q2_tempo_unidade", e.target.value)}
-                              className="appearance-none pr-8 pl-3 py-2 bg-transparent border-0 outline-none text-sm print:text-xs text-gray-700 font-semibold cursor-pointer focus:ring-0 print:p-0 print:m-0"
+                              className="appearance-none pr-8 pl-3 py-2 bg-transparent border-0 outline-none text-sm text-gray-700 font-semibold cursor-pointer focus:ring-0"
                             >
                               <option value="semanas">Semanas</option>
                               <option value="meses">Meses</option>
                               <option value="anos">Anos</option>
                             </select>
-                            <div className="absolute right-2.5 pointer-events-none text-gray-400 print:hidden">
-                              <ChevronDown className="w-4 h-4 print:hidden" />
+                            <div className="absolute right-2.5 pointer-events-none text-gray-400">
+                              <ChevronDown className="w-4 h-4" />
                             </div>
                           </div>
                         </div>
@@ -436,14 +680,14 @@ export function Anamnese({
                   </div>
 
                   {/* Pergunta 3: Uso de protetor */}
-                  <div className="flex flex-col space-y-4 print:space-y-1  ">
-                    <div className="print:flex print:flex-row print:items-center print:justify-start print:gap-2 flex flex-col space-y-3 print:space-y-0">
-                    <span className="text-sm font-bold text-ios-text print:text-xs print:whitespace-nowrap">
+                  <div className="flex flex-col space-y-4">
+                    <div className="flex flex-col space-y-3">
+                    <span className="text-sm font-bold text-ios-text">
                       Usa ou já usou protetor no ouvido?
                     </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:flex print:flex-row print:justify-start print:gap-2 print:items-center print:w-auto">
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="radio"
                             name="q3"
@@ -454,12 +698,12 @@ export function Anamnese({
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">Sim</span>
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">Sim</span>
                       </label>
 
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="radio"
                             name="q3"
@@ -470,19 +714,19 @@ export function Anamnese({
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">Não</span>
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">Não</span>
                       </label>
                     </div>
                     </div>
                     {answers.q3 === "sim" && (
-                      <div className="print:flex print:flex-row print:items-center print:gap-2 print:space-y-0 print:p-0 print:m-0 print:border-0 pl-3 space-y-3 print:space-y-0 print:pl-2 animate-in fade-in slide-in-from-left-2 duration-300 print:border-l print:border-gray-200 print:ml-2">
-                        <span className=" print:p-0 print:m-0 print:border-0 text-sm text-gray-600 print:text-xs print:whitespace-nowrap">
+                      <div className="pl-3 space-y-3 animate-in fade-in slide-in-from-left-2 duration-300">
+                        <span className="text-sm text-gray-600">
                           Qual?
                         </span>
-                        <div className="flex flex-wrap gap-3 print:flex print:flex-row print:justify-start print:gap-2 print:items-center print:w-auto">
-                          <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                        <div className="flex flex-wrap gap-3">
+                          <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                               <input
                                 type="radio"
                                 name="q3_type"
@@ -495,14 +739,14 @@ export function Anamnese({
                               />
                               <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                             </div>
-                            <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                            <span className="text-sm font-medium print:text-xs">
+                            <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                            <span className="text-sm font-medium">
                               Plug
                             </span>
                           </label>
 
-                          <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                          <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                               <input
                                 type="radio"
                                 name="q3_type"
@@ -515,14 +759,14 @@ export function Anamnese({
                               />
                               <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                             </div>
-                            <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                            <span className="text-sm font-medium print:text-xs">
+                            <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                            <span className="text-sm font-medium">
                               Concha
                             </span>
                           </label>
 
-                          <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                          <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                               <input
                                 type="radio"
                                 name="q3_type"
@@ -535,8 +779,8 @@ export function Anamnese({
                               />
                               <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                             </div>
-                            <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                            <span className="text-sm font-medium print:text-xs">
+                            <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                            <span className="text-sm font-medium">
                               Ambos
                             </span>
                           </label>
@@ -546,15 +790,15 @@ export function Anamnese({
                   </div>
 
                   {/* Pergunta 4: Hábitos */}
-                  <div className="flex flex-col space-y-4 print:space-y-1 ">
-                    <div className="print:flex print:flex-row print:items-center print:justify-start print:gap-2 flex flex-col space-y-3 print:space-y-0">
-                    <span className="text-sm font-bold text-ios-text print:text-xs print:whitespace-nowrap">
+                  <div className="flex flex-col space-y-4">
+                    <div className="flex flex-col space-y-3">
+                    <span className="text-sm font-bold text-ios-text">
                       Possui esses hábitos?
                     </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:flex print:flex-row print:justify-start print:gap-2 print:items-center print:w-auto">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {/* Opção: Motociclismo */}
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-ios-sm border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary transition-all bg-white print:hidden">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-ios-sm border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary transition-all bg-white">
                           <input
                             type="checkbox"
                             name="q4_moto"
@@ -580,15 +824,15 @@ export function Anamnese({
                             />
                           </svg>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">
                           Motociclismo
                         </span>
                       </label>
 
                       {/* Opção: Fone de ouvido */}
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-ios-sm border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary transition-all bg-white print:hidden">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-ios-sm border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary transition-all bg-white">
                           <input
                             type="checkbox"
                             name="q4_fone"
@@ -614,15 +858,15 @@ export function Anamnese({
                             />
                           </svg>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">
                           Fone de ouvido
                         </span>
                       </label>
 
                       {/* Opção: Músico */}
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-ios-sm border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary transition-all bg-white print:hidden">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-ios-sm border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary transition-all bg-white">
                           <input
                             type="checkbox"
                             name="q4_musico"
@@ -652,15 +896,15 @@ export function Anamnese({
                           </svg>
                         </div>
 
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">
                           Músico
                         </span>
                       </label>
 
                       {/* Opção: Nenhum (Lógica de exclusão) */}
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-ios-sm border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary transition-all bg-white print:hidden">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-ios-sm border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary transition-all bg-white">
                           <input
                             type="checkbox"
                             name="q4_nenhum"
@@ -693,8 +937,8 @@ export function Anamnese({
                             />
                           </svg>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">
                           Nenhum
                         </span>
                       </label>
@@ -704,14 +948,14 @@ export function Anamnese({
                   </div>
 
                   {/* Pergunta 8: Cirurgia */}
-                  <div className="flex flex-col space-y-4 print:space-y-1 ">
-                    <div className="print:flex print:flex-row print:items-center print:justify-start print:gap-2 flex flex-col space-y-3 print:space-y-0">
-                    <span className="text-sm font-bold text-ios-text print:text-xs print:whitespace-nowrap">
+                  <div className="flex flex-col space-y-4">
+                    <div className="flex flex-col space-y-3">
+                    <span className="text-sm font-bold text-ios-text">
                       Já realizou cirurgia no ouvido?
                     </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:flex print:flex-row print:justify-start print:gap-2 print:items-center print:w-auto">
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="radio"
                             name="q8"
@@ -722,12 +966,12 @@ export function Anamnese({
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">Sim</span>
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">Sim</span>
                       </label>
 
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="radio"
                             name="q8"
@@ -738,19 +982,19 @@ export function Anamnese({
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">Não</span>
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">Não</span>
                       </label>
                     </div>
                     </div>
                     {answers.q8 === "sim" && (
-                      <div className="print:flex print:flex-row print:items-center print:gap-2 print:space-y-0 print:p-0 print:m-0 print:border-0 pl-3 space-y-3 print:space-y-0 print:pl-2 animate-in fade-in slide-in-from-left-2 duration-300 print:border-l print:border-gray-200 print:ml-2">
-                        <span className="print:p-0 print:m-0 print:border-0 text-sm text-gray-600 print:text-xs print:whitespace-nowrap">
+                      <div className="pl-3 space-y-3 animate-in fade-in slide-in-from-left-2 duration-300">
+                        <span className="text-sm text-gray-600">
                           Qual ouvido?
                         </span>
-                        <div className="flex flex-wrap gap-3 print:flex print:flex-row print:justify-start print:gap-2 print:items-center print:w-auto">
-                          <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                        <div className="flex flex-wrap gap-3">
+                          <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                               <input
                                 type="radio"
                                 name="q8_ear"
@@ -763,14 +1007,14 @@ export function Anamnese({
                               />
                               <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                             </div>
-                            <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                            <span className="text-sm font-medium print:text-xs">
+                            <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                            <span className="text-sm font-medium">
                               OD
                             </span>
                           </label>
 
-                          <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                          <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                               <input
                                 type="radio"
                                 name="q8_ear"
@@ -783,14 +1027,14 @@ export function Anamnese({
                               />
                               <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                             </div>
-                            <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                            <span className="text-sm font-medium print:text-xs">
+                            <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                            <span className="text-sm font-medium">
                               OE
                             </span>
                           </label>
 
-                          <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                          <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                               <input
                                 type="radio"
                                 name="q8_ear"
@@ -803,8 +1047,8 @@ export function Anamnese({
                               />
                               <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                             </div>
-                            <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                            <span className="text-sm font-medium print:text-xs">
+                            <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                            <span className="text-sm font-medium">
                               Ambos
                             </span>
                           </label>
@@ -814,14 +1058,14 @@ export function Anamnese({
                   </div>
 
                   {/* Pergunta 9: Trauma */}
-                  <div className="flex flex-col space-y-4 print:space-y-1 ">
-                    <div className="print:flex print:flex-row print:items-center print:justify-start print:gap-2 flex flex-col space-y-3 print:space-y-0">
-                    <span className="text-sm font-bold text-ios-text print:text-xs print:whitespace-nowrap">
+                  <div className="flex flex-col space-y-4">
+                    <div className="flex flex-col space-y-3">
+                    <span className="text-sm font-bold text-ios-text">
                       Já sofreu algum trauma no ouvido?
                     </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:flex print:flex-row print:justify-start print:gap-2 print:items-center print:w-auto">
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="radio"
                             name="q9"
@@ -832,12 +1076,12 @@ export function Anamnese({
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">Sim</span>
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">Sim</span>
                       </label>
 
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="radio"
                             name="q9"
@@ -848,19 +1092,19 @@ export function Anamnese({
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">Não</span>
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">Não</span>
                       </label>
                     </div>
                     </div>
                     {answers.q9 === "sim" && (
-                      <div className="print:flex print:flex-row print:items-center print:gap-2 print:space-y-0 print:p-0 print:m-0 print:border-0 pl-3 space-y-3 print:space-y-0 print:pl-2 animate-in fade-in slide-in-from-left-2 duration-300 print:border-l print:border-gray-200 print:ml-2">
-                        <span className="print:p-0 print:m-0 print:border-0 text-sm text-gray-600 print:text-xs print:whitespace-nowrap">
+                      <div className="pl-3 space-y-3 animate-in fade-in slide-in-from-left-2 duration-300">
+                        <span className="text-sm text-gray-600">
                           Qual ouvido?
                         </span>
-                        <div className="flex flex-wrap gap-3 print:flex print:flex-row print:justify-start print:gap-2 print:items-center print:w-auto">
-                          <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                        <div className="flex flex-wrap gap-3">
+                          <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                               <input
                                 type="radio"
                                 name="q9_ear"
@@ -873,14 +1117,14 @@ export function Anamnese({
                               />
                               <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                             </div>
-                            <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                            <span className="text-sm font-medium print:text-xs">
+                            <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                            <span className="text-sm font-medium">
                               OD
                             </span>
                           </label>
 
-                          <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                          <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                               <input
                                 type="radio"
                                 name="q9_ear"
@@ -893,14 +1137,14 @@ export function Anamnese({
                               />
                               <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                             </div>
-                            <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                            <span className="text-sm font-medium print:text-xs">
+                            <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                            <span className="text-sm font-medium">
                               OE
                             </span>
                           </label>
 
-                          <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                          <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                               <input
                                 type="radio"
                                 name="q9_ear"
@@ -913,8 +1157,8 @@ export function Anamnese({
                               />
                               <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                             </div>
-                            <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                            <span className="text-sm font-medium print:text-xs">
+                            <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                            <span className="text-sm font-medium">
                               Ambos
                             </span>
                           </label>
@@ -924,17 +1168,17 @@ export function Anamnese({
                   </div>
 
                   {/* Pergunta 11: Doenças Crônicas ou Recorrentes */}
-                  <div className="flex flex-col space-y-4 print:space-y-1 ">
+                  <div className="flex flex-col space-y-4">
                     {/* Título da questão de doenças crônicas */}
-                    <span className="text-sm font-bold text-ios-text print:text-xs print:whitespace-nowrap">
+                    <span className="text-sm font-bold text-ios-text">
                       Já teve ou tem:
                     </span>
                     {/* Grid para exibição responsiva dos itens em tela e flex no modo de impressão */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 print:flex print:flex-row print:justify-start print:gap-2 print:items-center print:w-auto print:flex-wrap">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                       {/* Opção Hipertensão */}
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
                         {/* Indicador visual de checkbox personalizado (ocultado na impressão) */}
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="checkbox"
                             name="q11_hipertensao"
@@ -946,16 +1190,16 @@ export function Anamnese({
                           <div className="w-3 h-3 rounded-sm bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
                         {/* Marcador de preenchimento exclusivo para versão impressa */}
-                        <span className="hidden print:inline  text-black font-mono">
+                        <span className="hidden text-black font-mono">
                           (<span className="invisible group-has-[:checked]:visible">X</span>)
                         </span>
-                        <span className="text-sm font-medium print:text-xs">hipertensão</span>
+                        <span className="text-sm font-medium">hipertensão</span>
                       </label>
 
                       {/* Opção Diabetes */}
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
                         {/* Indicador visual de checkbox personalizado (ocultado na impressão) */}
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="checkbox"
                             name="q11_diabetes"
@@ -967,16 +1211,16 @@ export function Anamnese({
                           <div className="w-3 h-3 rounded-sm bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
                         {/* Marcador de preenchimento exclusivo para versão impressa */}
-                        <span className="hidden print:inline  text-black font-mono">
+                        <span className="hidden text-black font-mono">
                           (<span className="invisible group-has-[:checked]:visible">X</span>)
                         </span>
-                        <span className="text-sm font-medium print:text-xs">diabetes</span>
+                        <span className="text-sm font-medium">diabetes</span>
                       </label>
 
                       {/* Opção Problemas Cardíacos */}
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
                         {/* Indicador visual de checkbox personalizado (ocultado na impressão) */}
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="checkbox"
                             name="q11_cardiacos"
@@ -988,16 +1232,16 @@ export function Anamnese({
                           <div className="w-3 h-3 rounded-sm bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
                         {/* Marcador de preenchimento exclusivo para versão impressa */}
-                        <span className="hidden print:inline  text-black font-mono">
+                        <span className="hidden text-black font-mono">
                           (<span className="invisible group-has-[:checked]:visible">X</span>)
                         </span>
-                        <span className="text-sm font-medium print:text-xs">problemas cardíacos</span>
+                        <span className="text-sm font-medium">problemas cardíacos</span>
                       </label>
 
                       {/* OPÇÃO NENHUM */}
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
                         {/* Indicador visual de checkbox personalizado (ocultado na impressão) */}
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="checkbox"
                             name="q11_nenhum"
@@ -1009,27 +1253,27 @@ export function Anamnese({
                           <div className="w-3 h-3 rounded-sm bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
                         {/* Marcador de preenchimento exclusivo para versão impressa */}
-                        <span className="hidden print:inline  text-black font-mono">
+                        <span className="hidden text-black font-mono">
                           (<span className="invisible group-has-[:checked]:visible">X</span>)
                         </span>
-                        <span className="text-sm font-medium print:text-xs">nenhum</span>
+                        <span className="text-sm font-medium">nenhum</span>
                       </label>
 
 
                     </div>
 
                     {/* Campo outros problemas de saúde com layout otimizado para preenchimento e impressão */}
-                    <div className="print:p-0 print:m-0 print:border-0 pl-3 flex flex-col space-y-2 print:space-y-0 print:flex print:flex-row print:items-center print:gap-2 print:pl-2 print:border-l print:border-gray-200 print:ml-2">
+                    <div className="pl-3 flex flex-col space-y-2">
                       {answers.q11_nenhum === "nao" && answers.q11_diabetes === "nao" && answers.q11_cardiacos === "nao" && (
                         <> {/* ADICIONE A ABERTURA DO FRAGMENTO AQUI */}
-                          <span className="print:p-0 print:m-0 print:border-0 text-sm text-gray-600 print:text-xs print:font-bold print:whitespace-nowrap">
+                          <span className="text-sm text-gray-600">
                             Outros:
                           </span>
                           <input
                             type="text"
                             value={answers.q11_outros || ""}
                             onChange={(e) => handleAnswerChange("q11_outros", e.target.value)}
-                            className="w-full sm:w-1/2 px-4 py-3 bg-ios-bg border border-gray-400 rounded-ios focus:outline-none focus:border-ios-primary focus:ring-2 focus:ring-0/10 transition-all text-sm print:border-0 print:border-b print:border-gray-200 print:p-0 print:py-0 print:text-[11px] print:text-black print:flex-1"
+                            className="w-full sm:w-1/2 px-4 py-3 bg-ios-bg border border-gray-400 rounded-ios focus:outline-none focus:border-ios-primary focus:ring-2 focus:ring-0/10 transition-all text-sm"
                             placeholder="Especifique outros problemas de saúde, se houver"
                           />
                         </>
@@ -1039,37 +1283,51 @@ export function Anamnese({
                   </div>
 
                   {/* Pergunta 12: Tontura */}
-                  <div className="flex flex-col space-y-4 print:space-y-1 ">
-                    <div className="print:flex print:flex-row print:flex-nowrap print:items-center print:justify-start print:gap-2 flex flex-col space-y-3 print:space-y-0">
+                  <div className="flex flex-col space-y-4">
+                    <div className="flex flex-col space-y-3">
                     {/* Título da questão de tontura */}
-                    <span className="text-sm font-bold text-ios-text print:text-xs print:whitespace-nowrap">
+                    <span className="text-sm font-bold text-ios-text">
                       Apresenta tontura?
                     </span>
                     {/* Grid para exibição dos botões Sim e Não */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:flex print:flex-row print:justify-start print:gap-2 print:items-center print:w-auto">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {/* Opção Sim */}
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
+                            // Tipo do input como rádio
                             type="radio"
+                            // Atribui o nome da questão de tontura
                             name="q12_tontura"
+                            // Define o valor deste rádio como "sim"
                             value="sim"
+                            // Marca o rádio se a resposta no estado for igual a "sim"
                             checked={answers.q12_tontura === "sim"}
-                            onChange={(e) => handleAnswerChange("q12_tontura", e.target.value)}
+                            // Evento disparado quando o usuário escolhe a opção "Sim"
+                            onChange={(e) => {
+                              // Atualiza o estado principal da questão q12_tontura para "sim"
+                              handleAnswerChange("q12_tontura", e.target.value);
+                              // Caso a unidade de frequência de tontura não exista no estado, inicializa com "horas"
+                              if (!answers.q12_frequencia_unidade) {
+                                // Define a unidade padrão como "horas" no estado
+                                handleAnswerChange("q12_frequencia_unidade", "horas");
+                              }
+                            }}
+                            // Classe Tailwind CSS para esconder o input nativo de rádio
                             className="peer sr-only"
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
                         {/* Marcador exclusivo para a impressão */}
-                        <span className="hidden print:inline  text-black font-mono">
+                        <span className="hidden text-black font-mono">
                           (<span className="invisible group-has-[:checked]:visible">X</span>)
                         </span>
-                        <span className="text-sm font-medium print:text-xs">sim</span>
+                        <span className="text-sm font-medium">sim</span>
                       </label>
 
                       {/* Opção Não */}
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="radio"
                             name="q12_tontura"
@@ -1081,65 +1339,103 @@ export function Anamnese({
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
                         {/* Marcador exclusivo para a impressão */}
-                        <span className="hidden print:inline  text-black font-mono">
+                        <span className="hidden text-black font-mono">
                           (<span className="invisible group-has-[:checked]:visible">X</span>)
                         </span>
-                        <span className="text-sm font-medium print:text-xs">não</span>
+                        <span className="text-sm font-medium">não</span>
                       </label>
                     </div>
 
                     {/* Campo frequência da tontura (exibido apenas se "sim" for selecionado na tela, ou exibido na impressão) */}
-                    <div className={`pl-3 print:p-0 print:m-0 print:border-0 flex-col space-y-2 print:space-y-1 print:pl-2 print:space-y-1 print:flex-col print:items-start print:space-y-1 ${answers.q12_tontura === "sim" ? "flex" : "hidden print:flex"} animate-in fade-in slide-in-from-left-2 duration-300 `}>
+                    <div className={`pl-3    flex-col space-y-2       ${answers.q12_tontura === "sim" ? "flex" : "hidden "} animate-in fade-in slide-in-from-left-2 duration-300 `}>
                       {answers.q12_tontura === "sim" && (
-                        <div className="pl-3 flex flex-col space-y-2 print:space-y-0 print:flex print:flex-row print:items-center print:gap-1 animate-in fade-in slide-in-from-left-2 duration-300 print:ml-0">
-                          <span className="print:p-0 print:m-0 print:border-0 text-sm text-gray-600 print:text-xs print:whitespace-nowrap">
+                        <div className="pl-3 flex flex-col space-y-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                          <span className="text-sm text-gray-600">
                             A cada :
                           </span>
                           
-                        <div className="flex items-center print:gap-0 print:shadow-none print:rounded-none print:w-auto w-full max-w-[250px] border border-gray-300 print:border-0 rounded-xl focus-within:ring-4 focus-within:ring-ios-primary/10 focus-within:border-ios-primary transition-all overflow-hidden shadow-sm">
+                        {/* Container com bordas e flexbox para alinhar os botões de decremento/incremento, input de número e unidade */}
+                        <div className="flex items-center w-full max-w-[250px] border border-gray-300 rounded-xl focus-within:ring-4 focus-within:ring-ios-primary/10 focus-within:border-ios-primary transition-all overflow-hidden shadow-sm">
                           <button
+                            // Define o botão como tipo button
                             type="button"
+                            // Ação ao clicar no botão de decrementar a frequência
                             onClick={() => {
+                              // Obtém o valor numérico da frequência atual no estado ou assume 0 se for vazio/inválido
                               const valorAtual = parseInt(answers.q12_frequencia_val || "0", 10) || 0;
+                              // Garante que o novo valor não seja inferior a zero
                               const novoValor = Math.max(0, valorAtual - 1);
+                              // Atualiza o valor numérico da frequência no estado
                               handleAnswerChange("q12_frequencia_val", String(novoValor));
+                              // Se a unidade de frequência não estiver definida no estado, define como "horas" por padrão
+                              if (!answers.q12_frequencia_unidade) {
+                                // Grava a unidade "horas" no estado
+                                handleAnswerChange("q12_frequencia_unidade", "horas");
+                              }
                             }}
-                            className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-200/50 hover:text-gray-700 active:scale-90 transition-all font-semibold print:hidden"
+                            // Classes visuais e efeitos do botão de menos
+                            className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-200/50 hover:text-gray-700 active:scale-90 transition-all font-semibold"
                           >
-                            <Minus className="w-4 h-4 print:hidden" />
+                            {/* Ícone de menos */}
+                            <Minus className="w-4 h-4" />
                           </button>
                           <input
+                            // Define o input como campo de número
                             type="number"
+                            // Define o valor mínimo do campo como zero
                             min={0}
+                            // Atribui o valor do estado ou string vazia para evitar erros
                             value={answers.q12_frequencia_val || ""}
-                            onChange={(e) => handleAnswerChange("q12_frequencia_val", e.target.value)}
-                            className="w-12 text-center print:text-right print:w-[15px] print:max-w-[15px] print:p-0 print:m-0 bg-transparent border-0 outline-none text-sm print:text-xs text-gray-800 font-bold focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            // Evento disparado quando o usuário edita o campo numérico
+                            onChange={(e) => {
+                              // Atualiza o valor numérico da frequência no estado
+                              handleAnswerChange("q12_frequencia_val", e.target.value);
+                              // Se a unidade de frequência não estiver preenchida no estado, define como "horas"
+                              if (!answers.q12_frequencia_unidade) {
+                                // Grava a unidade "horas" no estado
+                                handleAnswerChange("q12_frequencia_unidade", "horas");
+                              }
+                            }}
+                            // Classes Tailwind CSS para formatação limpa e ocultar setas nativas
+                            className="w-12 text-center bg-transparent border-0 outline-none text-sm text-gray-800 font-bold focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            // Placeholder indicando o valor zero
                             placeholder="0"
                           />
                           <button
+                            // Define como botão normal
                             type="button"
+                            // Ação ao clicar no botão de incrementar a frequência
                             onClick={() => {
+                              // Obtém o valor numérico da frequência atual no estado ou assume 0 se for vazio/inválido
                               const valorAtual = parseInt(answers.q12_frequencia_val || "0", 10) || 0;
+                              // Soma uma unidade ao valor
                               const novoValor = valorAtual + 1;
+                              // Atualiza o valor numérico da frequência no estado
                               handleAnswerChange("q12_frequencia_val", String(novoValor));
+                              // Se a unidade de frequência não estiver definida no estado, define como "horas" por padrão
+                              if (!answers.q12_frequencia_unidade) {
+                                // Grava a unidade "horas" no estado
+                                handleAnswerChange("q12_frequencia_unidade", "horas");
+                              }
                             }}
-                            className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-200/50 hover:text-gray-700 active:scale-90 transition-all border-r print:border-0 border-gray-300 print:hidden"
+                            // Classes visuais e efeitos do botão de mais
+                            className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-200/50 hover:text-gray-700 active:scale-90 transition-all border-r border-gray-300"
                           >
-                            <Plus className="w-4 h-4 print:hidden" />
+                            <Plus className="w-4 h-4" />
                           </button>
-                          <div className="relative flex items-center pr-0 print:p-0 print:m-0 print:ml-1">
+                          <div className="relative flex items-center pr-0">
                             <select
                               value={answers.q12_frequencia_unidade || "horas"}
                               onChange={(e) => handleAnswerChange("q12_frequencia_unidade", e.target.value)}
-                              className="appearance-none pr-8 pl-3 py-2 bg-transparent border-0 outline-none text-sm print:text-xs text-gray-700 font-semibold cursor-pointer focus:ring-0 print:p-0 print:m-0"
+                              className="appearance-none pr-8 pl-3 py-2 bg-transparent border-0 outline-none text-sm text-gray-700 font-semibold cursor-pointer focus:ring-0"
                             >
                               <option value="horas">Horas</option>
                               <option value="dias">Dia(s)</option>
                               <option value="semanas">Semana(s)</option>
                         
                             </select>
-                            <div className="absolute right-2.5 pointer-events-none text-gray-400 print:hidden">
-                              <ChevronDown className="w-4 h-4 print:hidden" />
+                            <div className="absolute right-2.5 pointer-events-none text-gray-400">
+                              <ChevronDown className="w-4 h-4" />
                             </div>
                           </div>
                         </div>
@@ -1150,14 +1446,14 @@ export function Anamnese({
                   </div>
 
                   {/* Pergunta 13: Zumbido */}
-                  <div className="flex flex-col space-y-4 print:space-y-1 ">
-                    <div className="print:flex print:flex-row print:items-center print:justify-start print:gap-2 flex flex-col space-y-3 print:space-y-0">
-                    <span className="text-sm font-bold text-ios-text print:text-xs print:whitespace-nowrap">
+                  <div className="flex flex-col space-y-4">
+                    <div className="flex flex-col space-y-3">
+                    <span className="text-sm font-bold text-ios-text">
                       Apresenta zumbido?
                     </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:flex print:flex-row print:justify-start print:gap-2 print:items-center print:w-auto">
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="radio"
                             name="q13"
@@ -1168,12 +1464,12 @@ export function Anamnese({
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">Sim</span>
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">Sim</span>
                       </label>
 
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="radio"
                             name="q13"
@@ -1184,20 +1480,20 @@ export function Anamnese({
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">Não</span>
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">Não</span>
                       </label>
                     </div>
                     </div>
                     {answers.q13 === "sim" && (
-                      <div className="print:p-0 print:m-0 print:border-0 pl-3 space-y-4 print:space-y-1 border-l-2 border-gray-400 ml-2 print:pl-2 print:space-y-1 animate-in fade-in slide-in-from-left-2 duration-300 print:border-l print:border-gray-200 print:ml-2">
-                        <div className="flex flex-col space-y-3 print:space-y-0 print:flex print:flex-row print:items-center print:gap-2">
-                          <span className="print:p-0 print:m-0 print:border-0 text-sm text-gray-600 print:text-xs print:whitespace-nowrap">
+                      <div className="pl-3 space-y-4 border-l-2 border-gray-400 ml-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                        <div className="flex flex-col space-y-3">
+                          <span className="text-sm text-gray-600">
                             Qual ouvido?
                           </span>
-                          <div className="flex flex-wrap gap-3 print:flex print:flex-row print:justify-start print:gap-2 print:items-center print:w-auto">
-                            <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                              <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                          <div className="flex flex-wrap gap-3">
+                            <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                              <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                                 <input
                                   type="radio"
                                   name="q13_ear"
@@ -1210,14 +1506,14 @@ export function Anamnese({
                                 />
                                 <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                               </div>
-                              <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                              <span className="text-sm font-medium print:text-xs">
+                              <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                              <span className="text-sm font-medium">
                                 OD
                               </span>
                             </label>
 
-                            <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                              <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                            <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                              <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                                 <input
                                   type="radio"
                                   name="q13_ear"
@@ -1230,14 +1526,14 @@ export function Anamnese({
                                 />
                                 <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                               </div>
-                              <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                              <span className="text-sm font-medium print:text-xs">
+                              <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                              <span className="text-sm font-medium">
                                 OE
                               </span>
                             </label>
 
-                            <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                              <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                            <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                              <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                                 <input
                                   type="radio"
                                   name="q13_ear"
@@ -1250,21 +1546,21 @@ export function Anamnese({
                                 />
                                 <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                               </div>
-                              <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                              <span className="text-sm font-medium print:text-xs">
+                              <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                              <span className="text-sm font-medium">
                                 Ambos
                               </span>
                             </label>
                           </div>
                         </div>
-                        <div className="flex flex-col space-y-2 print:space-y-0 print:flex print:flex-row print:items-center print:gap-2">
-                          <span className="text-sm text-gray-600 print:text-xs print:whitespace-nowrap">
+                        <div className="flex flex-col space-y-2">
+                          <span className="text-sm text-gray-600">
                             Qual a frequência?
                           </span>
-                          <div className="flex-1 min-w-[200px] animate-in print:border-0 print:bg-transparent print:text-black fade-in zoom-in-95 duration-200">
+                          <div className="flex-1 min-w-[200px] animate-in fade-in zoom-in-95 duration-200">
                             <input
                               type="text"
-                              className="w-[60%]  print:border-0 print:border-b print:border-gray-300 print:rounded-none print:px-1 print:bg-transparent px-4 py-2.5 bg-ios-bg border border-gray-400 rounded-ios focus:outline-none focus:border-ios-primary focus:ring-2 focus:ring-ios-primary/10 transition-all text-sm"
+                              className="w-[60%] px-4 py-2.5 bg-ios-bg border border-gray-400 rounded-ios focus:outline-none focus:border-ios-primary focus:ring-2 focus:ring-ios-primary/10 transition-all text-sm"
                               placeholder="Especifique a frequência..."
                               value={answers.q13_frequencia || ""}
                               onChange={(e) =>
@@ -1278,14 +1574,14 @@ export function Anamnese({
                   </div>
 
                   {/* Pergunta 14: Histórico Familiar */}
-                  <div className="flex flex-col space-y-4 print:space-y-1 ">
-                    <div className="print:flex print:flex-row print:flex-nowrap print:items-center print:justify-start print:gap-2 flex flex-col space-y-3 print:space-y-0">
-                    <span className="text-sm font-bold text-ios-text print:text-xs print:whitespace-nowrap">
+                  <div className="flex flex-col space-y-4">
+                    <div className="flex flex-col space-y-3">
+                    <span className="text-sm font-bold text-ios-text">
                       Tem casos de problemas auditivos na família?
                     </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:flex print:flex-row print:justify-start print:gap-2 print:items-center print:w-auto">
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="radio"
                             name="q14"
@@ -1296,12 +1592,12 @@ export function Anamnese({
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">Sim</span>
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">Sim</span>
                       </label>
 
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="radio"
                             name="q14"
@@ -1312,20 +1608,20 @@ export function Anamnese({
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">Não</span>
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">Não</span>
                       </label>
                     </div>
                     {answers.q14 === "sim" && (
-                      <div className="print:p-0 print:m-0 print:border-0 pl-3 flex flex-col space-y-2 print:space-y-0 print:flex print:flex-row print:items-center print:gap-2 print:pl-2 animate-in fade-in slide-in-from-left-2 duration-300  print:ml-0">
-                        <span className="print:p-0 print:m-0 print:border-0 text-sm text-gray-600 print:text-xs print:whitespace-nowrap">
+                      <div className="pl-3 flex flex-col space-y-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                        <span className="text-sm text-gray-600">
                           Parentesco:
                         </span>
                         <input
                           type="text"
                           value={answers.q14_parentesco || ""}
                           onChange={(e) => handleAnswerChange("q14_parentesco", e.target.value)}
-                          className="w-[20%]  print:border-0 print:border-b print:border-gray-300 print:rounded-none print:px-1 print:bg-transparent px-4 py-2.5 bg-ios-bg border border-gray-400 rounded-ios focus:outline-none focus:border-ios-primary focus:ring-2 focus:ring-ios-primary/10 transition-all text-sm print:w-auto"
+                          className="w-[20%] px-4 py-2.5 bg-ios-bg border border-gray-400 rounded-ios focus:outline-none focus:border-ios-primary focus:ring-2 focus:ring-ios-primary/10 transition-all text-sm"
                         />
                       </div>
                     )}
@@ -1333,14 +1629,14 @@ export function Anamnese({
                   </div>
 
                   {/* Pergunta 15: Limpeza do ouvido */}
-                  <div className="flex flex-col space-y-4 print:space-y-1 ">
-                    <div className="print:flex print:flex-row print:items-center print:justify-start print:gap-2 flex flex-col space-y-3 print:space-y-0">
-                    <span className="text-sm font-bold text-ios-text print:text-xs print:whitespace-nowrap">
+                  <div className="flex flex-col space-y-4">
+                    <div className="flex flex-col space-y-3">
+                    <span className="text-sm font-bold text-ios-text">
                       Usa algum objeto para limpar o ouvido?
                     </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:flex print:flex-row print:justify-start print:gap-2 print:items-center print:w-auto">
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="radio"
                             name="q15"
@@ -1351,12 +1647,12 @@ export function Anamnese({
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">Sim</span>
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">Sim</span>
                       </label>
 
-                      <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary print:p-0 print:bg-transparent print:border-0">
-                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="radio"
                             name="q15"
@@ -1367,19 +1663,19 @@ export function Anamnese({
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                         </div>
-                        <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                        <span className="text-sm font-medium print:text-xs">Não</span>
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">Não</span>
                       </label>
                     </div>
                     </div>
                     {answers.q15 === "sim" && (
-                      <div className="print:p-0 print:m-0 print:border-0 pl-3 flex flex-col space-y-2 print:space-y-0 print:flex print:flex-row print:items-center print:gap-2 print:pl-2 animate-in fade-in slide-in-from-left-2 duration-300 print:border-l print:border-gray-200 print:ml-2">
-                        <span className="print:p-0 print:m-0 print:border-0 text-sm text-gray-600 print:text-xs print:whitespace-nowrap">
+                      <div className="pl-3 flex flex-col space-y-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                        <span className="text-sm text-gray-600">
                           Qual objeto?
                         </span>
                         <div className="flex flex-wrap items-center gap-3">
-                          <label className="group flex items-center space-x-3 print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                          <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                               <input
                                 type="radio"
                                 name="q15_object"
@@ -1392,14 +1688,14 @@ export function Anamnese({
                               />
                               <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                             </div>
-                            <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                            <span className="text-sm font-medium print:text-xs">
+                            <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                            <span className="text-sm font-medium">
                               Hastes de Algodão
                             </span>
                           </label>
 
-                          <label className="group flex items-center  space-x-3 print:space-x-1 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary print:p-0 print:border-0 print:bg-transparent print:text-black">
-                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white print:hidden">
+                          <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                               <input
                                 type="radio"
                                 name="q15_object"
@@ -1412,17 +1708,17 @@ export function Anamnese({
                               />
                               <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
                             </div>
-                            <span className="hidden print:inline  text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
-                            <span className="text-sm font-medium print:text-xs">
+                            <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                            <span className="text-sm font-medium">
                               Outro
                             </span>
                           </label>
 
                           {answers.q15_object === "outro" && (
-                            <div className="flex-1 min-w-[200px] animate-in print:border-0 print:bg-transparent print:text-black fade-in zoom-in-95 duration-200">
+                            <div className="flex-1 min-w-[200px] animate-in fade-in zoom-in-95 duration-200">
                               <input
                                 type="text"
-                                className="w-full  print:border-0 print:border-b print:border-gray-300 print:rounded-none print:px-1 print:bg-transparent px-4 py-2.5 bg-ios-bg border border-gray-400 rounded-ios focus:outline-none focus:border-ios-primary focus:ring-2 focus:ring-ios-primary/10 transition-all text-sm"
+                                className="w-full px-4 py-2.5 bg-ios-bg border border-gray-400 rounded-ios focus:outline-none focus:border-ios-primary focus:ring-2 focus:ring-ios-primary/10 transition-all text-sm"
                                 placeholder="Especifique o objeto..."
                                 value={answers.q15_outro_text || ""}
                                 onChange={(e) =>
@@ -1439,16 +1735,16 @@ export function Anamnese({
               </div>
 
               {/* Bloco 3: Observações finais e assinaturas */}
-              <div className="bg-white rounded-ios shadow-sm border border-gray-400 p-6 space-y-8 relative overflow-hidden print:border-gray-300 print:border print:rounded-none print:shadow-none print:p-3 ">
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-text rounded-l-ios print:hidden"></div>
+              <div className="bg-white rounded-ios shadow-sm border border-gray-400 p-6 space-y-8 relative overflow-hidden">
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-text rounded-l-ios"></div>
 
-                <div className="flex items-start print:items-end gap-2">
-                  <label className="font-semibold text-sm mt-1 print:text-xs print:mt-0 print:whitespace-nowrap">
+                <div className="flex items-start gap-2">
+                  <label className="font-semibold text-sm mt-1">
                     Observação:
                   </label>
                   <textarea
                     rows={3}
-                    className="flex-1 w-full bg-transparent border border-dashed border-gray-400 rounded-md p-2 focus:outline-none focus:border-ios-primary text-sm resize-none print:text-xs print:h-5 print:min-h-0 print:p-0 print:border-0 print:border-b print:border-solid print:border-gray-500 print:rounded-none print:overflow-hidden"
+                    className="flex-1 w-full bg-transparent border border-dashed border-gray-400 rounded-md p-2 focus:outline-none focus:border-ios-primary text-sm resize-none"
                     placeholder="Espaço reservado para observações adicionais"
                     value={answers.anamneseObservacao || ""}
                     onChange={(e) => handleAnswerChange("anamneseObservacao", e.target.value)}
@@ -1460,17 +1756,10 @@ export function Anamnese({
               
 
               {/* Botão de Ação Principal: Salvar */}
-              <div className="flex justify-center pt-0 pb-0 print:hidden">
+              <div className="flex justify-center pt-0 pb-0">
                 <button
-                  onClick={() => {
-                    // Exibe um alerta avisando que a anamnese foi salva com sucesso
-                    alert("Anamnese salva com sucesso!");
-                    // Caso exista a função onSaveSuccess, executa a navegação para a tela de audiometria
-                    if (onSaveSuccess) {
-                      onSaveSuccess();
-                    }
-                  }}
-                  className="group relative flex items-center justify-center space-x-3 print:space-x-1 bg-ios-primary hover:bg-ios-primary/90 text-white font-bold py-4 px-16 rounded-ios shadow-float hover:shadow-float-lg transition-all transform hover:-translate-y-1 active:scale-95"
+                  onClick={handleSave}
+                  className="group relative flex items-center justify-center space-x-3 bg-ios-primary hover:bg-ios-primary/90 text-white font-bold py-4 px-16 rounded-ios shadow-float hover:shadow-float-lg transition-all transform hover:-translate-y-1 active:scale-95"
                 >
                   <Save className="w-5 h-5 group-hover:animate-bounce" />
                   <span className="text-lg tracking-tight">Salvar Anamnese</span>
@@ -1478,12 +1767,22 @@ export function Anamnese({
                   {/* Efeito de brilho sutil no hover */}
                 </button>
               </div>
+
+              {/* PopUp de validação em vez do alert do navegador */}
+              <AudiomPopup
+                isOpen={popupConfig.isOpen}
+                title={popupConfig.title}
+                message={popupConfig.message}
+                type={popupConfig.type}
+                onClose={() => setPopupConfig((prev) => ({ ...prev, isOpen: false }))}
+                onConfirm={popupConfig.onConfirm}
+              />
             </div>
           </td>
         </tr>
       </tbody>
 
-      <tfoot className="hidden print:table-footer-group">
+      <tfoot className="hidden">
         <tr>
           <td>
             <div className="h-4"></div>

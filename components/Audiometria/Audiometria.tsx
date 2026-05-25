@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 // Importamos os ícones do lucide-react para enriquecer a interface visual
 import {
   Stethoscope,
@@ -21,18 +21,23 @@ import { Agendamento } from "../../types";
 import sigImage from "../ui/grade/sig.png";
 
 // Importamos os novos componentes modularizados criados para desacoplar a lógica
-import { GradeAudiometria, Point, Line } from "./GradeAudiometria";
+import { GradeAudiometria, GradeAudiometriaRef, Point, Line } from "./GradeAudiometria";
 import { SignatureScreen } from "./SignatureScreen";
 import { LaudoPerda } from "./LaudoPerda";
 // Importamos o tipo PatientData compartilhado entre exames
 import { PatientData } from "./AudiometriaMenu";
 
+// Importa o cliente de conexão do Supabase
 import { supabase } from "../../supabaseClient";
+// Importa a função pdf do react-pdf para renderização em memória
 import { pdf } from '@react-pdf/renderer';
+// Importa o componente template que renderiza as páginas do PDF
 import { AudiometriaPDFTemplate } from "./AudiometriaPDFTemplate";
+// Importa a biblioteca de notificações do Sonner para exibir feedbacks de sucesso e erro
+import { toast } from "sonner";
 
 interface AudiometriaProps {
-  // O agendamento recebido (opcional)
+  // O agendamento recebido (opcional) do banco de dados
   appointment?: Agendamento | null;
   // Estado compartilhado dos dados cadastrais do paciente
   patientData?: PatientData;
@@ -42,8 +47,16 @@ interface AudiometriaProps {
   setPatientData?: React.Dispatch<React.SetStateAction<PatientData>>;
   // Callback para retornar à aba anterior
   onBack?: () => void;
-
+  // Callback disparado quando o documento for salvo com sucesso
+  onSaveSuccess?: () => void;
 }
+
+// Função auxiliar para adicionar sufixo (dB ou %)
+const formatInputWithSuffix = (value: string, suffix: string) => {
+  const onlyNumbers = value.replace(/\D/g, "");
+  if (!onlyNumbers) return "";
+  return `${onlyNumbers}${suffix}`;
+};
 
 // Componente principal para o formulário de Audiometria Ocupacional
 export function Audiometria({
@@ -52,6 +65,7 @@ export function Audiometria({
   anamneseAnswers,
   setPatientData,
   onBack,
+  onSaveSuccess
 }: AudiometriaProps) {
   // Estados para os campos de Meatoscopia (OD e OE) para sincronização e exibição duplicada no PDF
   const [meatoscopiaOD, setMeatoscopiaOD] = useState("");
@@ -128,6 +142,9 @@ export function Audiometria({
   // Novos estados para mapear os campos não controlados e enviar em JSON
   const [gradeData, setGradeData] = useState<{ pointsOD: Point[], pointsOE: Point[], linesOD: Line[], linesOE: Line[] } | null>(null);
   
+  // Referência para o componente GradeAudiometria, permitindo exportar as imagens desenhadas
+  const gradeAudiometriaRef = useRef<GradeAudiometriaRef>(null);
+
   const [audiometroData, setAudiometroData] = useState({
     marca: "VIBRASOM",
     modelo: "AVS-500",
@@ -149,19 +166,31 @@ export function Audiometria({
 
   const [isGenerating, setIsGenerating] = useState(false);
 
+
+
   // Toda a lógica de desenho da grade audiométrica (OD/OE) e da assinatura digital foi transferida para componentes dedicados.
 
   // Função para salvar os dados da audiometria no Supabase
+  // Declara a função assíncrona responsável por salvar o exame e fazer upload do PDF
   const handleSaveAudiometria = async () => {
     // Verifica se existe um colaborador associado ao agendamento
     if (!appointment?.colaborador_id) {
-      alert("Erro: Colaborador não identificado.");
+      // Exibe notificação flutuante de erro se o colaborador não for encontrado
+      toast.error("Erro: Colaborador não identificado.");
+      // Aborta a execução do salvamento
       return;
     }
 
     setIsGenerating(true);
 
     try {
+      console.log("[DEBUG] Capturando imagens da grade de audiometria...");
+      let capturedGrids = { imageOD: '', imageOE: '' };
+      
+      if (gradeAudiometriaRef.current) {
+        capturedGrids = await gradeAudiometriaRef.current.exportImages();
+      }
+
       console.log("[DEBUG] Renderizando o Template PDF em memória com React-PDF...");
       
       const doc = <AudiometriaPDFTemplate 
@@ -177,6 +206,8 @@ export function Audiometria({
         employeeSignature={employeeSignature}
         tipoExame={tipoExame}
         termoData={termoData}
+        gradeImageOD={capturedGrids.imageOD}
+        gradeImageOE={capturedGrids.imageOE}
       />;
 
       // Chama a biblioteca para desenhar e empacotar como BLOB nativo
@@ -200,12 +231,20 @@ export function Audiometria({
       const token = sessionData?.session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY;
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
+      // Faz o upload direto do buffer do PDF para a API REST do Supabase Storage
       const response = await fetch(`${supabaseUrl}/storage/v1/object/audiometria/${fileName}`, {
+        // Define o método POST para criação de novo objeto no bucket
         method: 'POST',
+        // Define os headers de autorização e o tipo de conteúdo como PDF
         headers: {
+          // Passa o token de acesso (sessão do usuário ou anon key) no Bearer
           'Authorization': `Bearer ${token}`,
+          // Passa a chave anônima nos headers exigida pelo gateway REST do Supabase
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          // Define que o corpo da requisição é um arquivo do tipo PDF
           'Content-Type': 'application/pdf',
         },
+        // Envia o arrayBuffer contendo os bytes do PDF
         body: arrayBuffer
       });
 
@@ -225,17 +264,33 @@ export function Audiometria({
 
       // 3. Montar o payload JSON que será salvo na coluna 'documento'
       const documentoJson = {
+        // Contém os dados cadastrais do paciente (nome, cpf, rg, empresa, etc)
         patientData,
+        // Inclui as respostas completas coletadas na etapa de anamnese
+        anamneseAnswers: anamneseAnswers || {},
+        // Contém o diagnóstico clínico visual da orelha direita
         meatoscopiaOD,
+        // Contém o diagnóstico clínico visual da orelha esquerda
         meatoscopiaOE,
+        // Contém o laudo e considerações clínicas gerais escritas pela fonoaudióloga
         observacoes,
+        // Contém o tipo do exame ocupacional (admissional, periódico, demissional, etc)
         tipoExame,
+        // Contém as opções e assinaturas confirmadas no Termo de Perda Auditiva
         termoData,
+        // Contém a imagem em Base64 da assinatura capturada do funcionário
         employeeSignature,
+        // Contém a lista de coordenadas e símbolos das linhas e pontos da grade OD/OE
         gradeData,
+        // Contém a marca, modelo e calibração do equipamento audiômetro utilizado
         audiometroData,
+        // Contém as tabelas de limiar de recepção de fala (LRF) e índice de reconhecimento de fala (IPRF)
         logoAudiometriaData,
-        laudoData
+        // Contém a classificação do laudo de limiares aceitáveis e perdas por frequência
+        laudoData,
+        // Base64 gerado a partir do Canvas mesclado com o Background
+        gradeImageOD: capturedGrids.imageOD,
+        gradeImageOE: capturedGrids.imageOE
       };
 
       // Fazemos a inserção na tabela 'audiometria'
@@ -257,11 +312,20 @@ export function Audiometria({
         .update({ audiometria: 'Finalizado' })
         .eq('id', appointment.id);
 
+      // Loga no console do navegador para depuração
       console.log("Audiometria salva com sucesso!", data);
-      // alert("Audiometria salva com sucesso no banco de dados!");
+      // Apresenta notificação de sucesso na interface visual do usuário
+      toast.success("Audiometria salva com sucesso!");
+      
+      if (onSaveSuccess) {
+        onSaveSuccess();
+      }
+    // Captura qualquer erro disparado em qualquer etapa do fluxo try
     } catch (err: any) {
+      // Registra o erro no console para análise do desenvolvedor
       console.error("Erro inesperado na requisição:", err);
-      alert(`Erro inesperado ao tentar salvar: ${err.message}`);
+      // Apresenta notificação contendo o erro técnico para o usuário na interface
+      toast.error(`Erro inesperado ao tentar salvar: ${err.message}`);
     } finally {
       setIsGenerating(false);
     }
@@ -270,10 +334,10 @@ export function Audiometria({
   // Retornamos a estrutura principal do componente com uma div que ocupa todo o espaço
   return (
     // Div principal com padding, fundo claro, permitindo scroll caso necessário (Ajustado para max-w-4xl para perfeita centralização das grades empilhadas de 750px)
-    <div id="pdf-container" className="w-full max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 print:p-0 print:pt-[6px] print:pb-[1.5cm] print:m-0 print:space-y-1 print:max-w-none print:w-full print:break-before-page">
+    <div id="pdf-container" className="w-full max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
       {/* Botão de Voltar - Topo (Exibido no fundo da página, fora do card) */}
       {onBack && (
-        <div className="flex justify-start print:hidden -mb-2">
+        <div className="flex justify-start -mb-2">
           <button
             onClick={onBack}
             className="group flex items-center justify-center space-x-2 text-gray-500 hover:text-ios-primary transition-colors hover:bg-white/60 px-4 py-2 rounded-lg active:scale-95 font-medium shadow-sm border border-transparent hover:border-gray-200/60"
@@ -288,44 +352,44 @@ export function Audiometria({
 
 
       {/* Formal Print Header (Hidden on screen) */}
-      <div className="hidden print:block text-center mb-4 print:-mt-10 ">
+      <div className="hidden text-center mb-4">
         <h1 className="text-xl font-bold uppercase pb-2 tracking-widest text-black">
           Protocolo de Audiometria Ocupacional
         </h1>
       </div>
 
       {/* Cabeçalho principal com efeito de vidro e sombra flutuante */}
-      <div className="glass-panel p-6 rounded-ios shadow-float border border-ios-primary/20 flex items-center justify-center bg-white/80 print:hidden ">
+      <div className="glass-panel p-6 rounded-ios shadow-float border border-ios-primary/20 flex items-center justify-center bg-white/80">
         {/* Ícone de fone de ouvido para remeter a audiometria */}
         <Headphones className="w-8 h-8 text-ios-primary mr-3" />
         {/* Título do documento */}
-        <h1 className="text-2xl font-bold text-ios-text tracking-tight uppercase ">
+        <h1 className="text-2xl font-bold text-ios-text tracking-tight uppercase">
           Protocolo de Audiometria Ocupacional
         </h1>
       </div>
 
       {/* Seção 1: Dados do Paciente e Empresa */}
       {/* Container com fundo branco arredondado para agrupar as informações */}
-      <div className="bg-white rounded-ios shadow-sm border border-ios-divider p-6 space-y-4 relative overflow-hidden print:border-gray-300 print:border print:rounded-none print:shadow-none print:p-2 print:mb-1 print:break-inside-avoid">
+      <div className="bg-white rounded-ios shadow-sm border border-ios-divider p-6 space-y-4 relative overflow-hidden">
         {/* Barra lateral de cor azul para dar um charme visual premium */}
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-primary rounded-l-ios print:hidden"></div>
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-primary rounded-l-ios"></div>
 
         {/* Cabeçalho da seção com ícone de usuário */}
-        <div className="flex items-center text-ios-primary font-semibold mb-4 border-b border-ios-divider pb-2 print:border-gray-400 print:mb-2 print:pb-1 print:text-black print:justify-center">
-          <User className="w-5 h-5 mr-2 print:hidden" />
-          <span className="print:text-xs print:font-bold uppercase">
+        <div className="flex items-center text-ios-primary font-semibold mb-4 border-b border-ios-divider pb-2">
+          <User className="w-5 h-5 mr-2" />
+          <span className="uppercase">
             DADOS DO PACIENTE
           </span>
         </div>
 
         {/* Contêiner de Dados do Paciente organizado em fluxo de blocos adaptáveis */}
-        <div className="flex flex-col gap-4 print:gap-2">
+        <div className="flex flex-col gap-4">
           {/* Linha 1: Pareamento de Empresa e Nome na impressão, mantendo grid responsivo em tela */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:flex print:flex-row print:gap-4 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
             {/* Bloco do Campo Empresa */}
-            <div className="flex flex-col print:flex-row print:items-baseline print:gap-2 print:flex-1">
+            <div className="flex flex-col">
               {/* Rótulo descritivo com cor padrão iOS e largura mínima na impressão */}
-              <label className="text-xs font-medium text-ios-subtext mb-1 uppercase tracking-wider print:text-black print:min-w-[60px] print:mb-0">
+              <label className="text-xs font-medium text-ios-subtext mb-1 uppercase tracking-wider">
                 Empresa
               </label>
               {/* Input reativo conectado ao estado global do paciente */}
@@ -336,15 +400,15 @@ export function Audiometria({
                   setPatientData &&
                   setPatientData((prev) => ({ ...prev, empresa: e.target.value }))
                 }
-                className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 transition-all text-sm print:bg-transparent print:border-0 print:border-b print:border-gray-400 print:rounded-none print:px-0 print:py-0 print:text-[10px] print:text-black print:flex-1"
+                className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 transition-all text-sm"
                 placeholder="Nome da Empresa"
               />
             </div>
 
             {/* Bloco do Campo Nome */}
-            <div className="flex flex-col print:flex-row print:items-baseline print:gap-2 print:flex-1">
+            <div className="flex flex-col">
               {/* Rótulo descritivo com cor padrão iOS e largura mínima na impressão */}
-              <label className="text-xs font-medium text-ios-subtext mb-1 uppercase tracking-wider print:text-black print:min-w-[60px] print:mb-0">
+              <label className="text-xs font-medium text-ios-subtext mb-1 uppercase tracking-wider">
                 Nome
               </label>
               {/* Input reativo conectado ao estado global do paciente */}
@@ -355,18 +419,18 @@ export function Audiometria({
                   setPatientData &&
                   setPatientData((prev) => ({ ...prev, nome: e.target.value }))
                 }
-                className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 transition-all text-sm print:bg-transparent print:border-0 print:border-b print:border-gray-400 print:rounded-none print:px-0 print:py-0 print:text-[10px] print:text-black print:flex-1"
+                className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 transition-all text-sm"
                 placeholder="Nome completo"
               />
             </div>
           </div>
 
           {/* Linha 2: Pareamento de Função e Sexo na impressão, mantendo grid responsivo em tela */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:flex print:flex-row print:gap-4 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
             {/* Bloco do Campo Função */}
-            <div className="flex flex-col print:flex-row print:items-baseline print:gap-2 print:flex-1">
+            <div className="flex flex-col">
               {/* Rótulo descritivo com cor padrão iOS e largura mínima na impressão */}
-              <label className="text-xs font-medium text-ios-subtext mb-1 uppercase tracking-wider print:text-black print:min-w-[60px] print:mb-0">
+              <label className="text-xs font-medium text-ios-subtext mb-1 uppercase tracking-wider">
                 Função
               </label>
               {/* Input reativo de função conectado ao estado global */}
@@ -377,19 +441,19 @@ export function Audiometria({
                   setPatientData &&
                   setPatientData((prev) => ({ ...prev, funcao: e.target.value }))
                 }
-                className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 transition-all text-sm print:bg-transparent print:border-0 print:border-b print:border-gray-400 print:rounded-none print:px-0 print:py-0 print:text-[10px] print:text-black print:flex-1"
+                className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 transition-all text-sm"
                 placeholder="Função do Colaborador"
               />
             </div>
 
             {/* Bloco do Grupo de Sexo */}
-            <div className="flex flex-col print:flex-row print:items-baseline print:gap-2 print:flex-1">
+            <div className="flex flex-col">
               {/* Rótulo descritivo com cor padrão iOS e largura mínima na impressão */}
-              <label className="text-xs font-medium text-ios-subtext mb-1 uppercase tracking-wider print:text-black print:min-w-[60px] print:mb-0">
+              <label className="text-xs font-medium text-ios-subtext mb-1 uppercase tracking-wider">
                 Sexo
               </label>
               {/* Contêiner de seleção com radio buttons para masculino e feminino */}
-              <div className="flex space-x-4 items-center h-full pt-1 print:pt-0">
+              <div className="flex space-x-4 items-center h-full pt-1">
                 {/* Seleção Feminino */}
                 <label className="flex items-center space-x-2 cursor-pointer group">
                   <input
@@ -401,9 +465,9 @@ export function Audiometria({
                       setPatientData &&
                       setPatientData((prev) => ({ ...prev, sexo: "Feminino" }))
                     }
-                    className="text-ios-primary focus:ring-ios-primary accent-ios-primary w-4 h-4 print:w-3 print:h-3"
+                    className="text-ios-primary focus:ring-ios-primary accent-ios-primary w-4 h-4"
                   />
-                  <span className="text-sm text-ios-text group-hover:text-ios-primary transition-colors print:text-[10px] print:text-black">
+                  <span className="text-sm text-ios-text group-hover:text-ios-primary transition-colors">
                     Feminino
                   </span>
                 </label>
@@ -418,9 +482,9 @@ export function Audiometria({
                       setPatientData &&
                       setPatientData((prev) => ({ ...prev, sexo: "Masculino" }))
                     }
-                    className="text-ios-primary focus:ring-ios-primary accent-ios-primary w-4 h-4 print:w-3 print:h-3"
+                    className="text-ios-primary focus:ring-ios-primary accent-ios-primary w-4 h-4"
                   />
-                  <span className="text-sm text-ios-text group-hover:text-ios-primary transition-colors print:text-[10px] print:text-black">
+                  <span className="text-sm text-ios-text group-hover:text-ios-primary transition-colors">
                     Masculino
                   </span>
                 </label>
@@ -429,12 +493,12 @@ export function Audiometria({
           </div>
 
           {/* Linha 3: Pareamento de CPF e RG lado a lado (tanto na tela quanto na impressão) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:flex print:flex-row print:gap-4 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
             {/* Bloco de CPF e RG aninhados */}
-            <div className="grid grid-cols-2 gap-4 print:flex print:flex-row print:gap-4 print:flex-1">
+            <div className="grid grid-cols-2 gap-4">
               {/* Campo CPF */}
-              <div className="flex flex-col print:flex-row print:items-baseline print:gap-2 print:flex-1">
-                <label className="text-xs font-medium text-ios-subtext mb-1 uppercase tracking-wider print:text-black print:min-w-[60px] print:mb-0">
+              <div className="flex flex-col">
+                <label className="text-xs font-medium text-ios-subtext mb-1 uppercase tracking-wider">
                   CPF
                 </label>
                 <input
@@ -447,13 +511,13 @@ export function Audiometria({
                       documento: e.target.value,
                     }))
                   }
-                  className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 transition-all text-sm print:bg-transparent print:border-0 print:border-b print:border-gray-400 print:rounded-none print:px-0 print:py-0 print:text-[10px] print:text-black print:flex-1"
+                  className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 transition-all text-sm"
                   placeholder="000.000.000-00"
                 />
               </div>
               {/* Campo RG */}
-              <div className="flex flex-col print:flex-row print:items-baseline print:gap-2 print:flex-1">
-                <label className="text-xs font-medium text-ios-subtext mb-1 uppercase tracking-wider print:text-black print:min-w-[30px] print:mb-0">
+              <div className="flex flex-col">
+                <label className="text-xs font-medium text-ios-subtext mb-1 uppercase tracking-wider">
                   RG
                 </label>
                 <input
@@ -463,20 +527,20 @@ export function Audiometria({
                     setPatientData &&
                     setPatientData((prev) => ({ ...prev, rg: e.target.value }))
                   }
-                  className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 transition-all text-sm print:bg-transparent print:border-0 print:border-b print:border-gray-400 print:rounded-none print:px-0 print:py-0 print:text-[10px] print:text-black print:flex-1"
+                  className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 transition-all text-sm"
                   placeholder="RG"
                 />
               </div>
             </div>
             {/* Bloco em branco para equilibrar o grid lateral na tela normal */}
-            <div className="hidden md:block print:hidden"></div>
+            <div className="hidden md:block"></div>
           </div>
 
           {/* Linha 4: Pareamento de Nascimento, Exame e Repouso na impressão, mantendo grid na tela */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 print:flex print:flex-row print:gap-4 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
             {/* Bloco do Campo Data de Nascimento */}
-            <div className="flex flex-col print:flex-row print:items-baseline print:gap-2 print:flex-1">
-              <label className="text-xs font-medium text-ios-subtext mb-1 uppercase tracking-wider print:text-black print:min-w-[60px] print:mb-0">
+            <div className="flex flex-col">
+              <label className="text-xs font-medium text-ios-subtext mb-1 uppercase tracking-wider">
                 Nasc.
               </label>
               <input
@@ -489,13 +553,13 @@ export function Audiometria({
                     dataNascimento: e.target.value,
                   }))
                 }
-                className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 transition-all text-sm text-ios-text print:bg-transparent print:border-0 print:border-b print:border-gray-400 print:rounded-none print:px-0 print:py-0 print:text-[10px] print:text-black print:flex-1"
+                className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 transition-all text-sm text-ios-text"
               />
             </div>
 
             {/* Bloco do Campo Data do Exame */}
-            <div className="flex flex-col print:flex-row print:items-baseline print:gap-2 print:flex-1">
-              <label className="text-xs font-medium text-ios-subtext mb-1 uppercase tracking-wider print:text-black print:min-w-[60px] print:mb-0">
+            <div className="flex flex-col">
+              <label className="text-xs font-medium text-ios-subtext mb-1 uppercase tracking-wider">
                 Exame
               </label>
               <input
@@ -508,20 +572,20 @@ export function Audiometria({
                     dataExame: e.target.value,
                   }))
                 }
-                className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 transition-all text-sm text-ios-text print:bg-transparent print:border-0 print:border-b print:border-gray-400 print:rounded-none print:px-0 print:py-0 print:text-[10px] print:text-black print:flex-1"
+                className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 transition-all text-sm text-ios-text"
               />
             </div>
 
             {/* Bloco do Campo Repouso Auditivo */}
-            <div className="flex flex-col print:flex-row print:items-baseline print:gap-2 print:flex-1">
-              <label className="text-xs font-medium text-ios-subtext mb-1 uppercase tracking-wider print:text-black print:min-w-[60px] print:mb-0">
+            <div className="flex flex-col">
+              <label className="text-xs font-medium text-ios-subtext mb-1 uppercase tracking-wider">
                 Repouso
               </label>
               <input
                 type="text"
                 value={patientData?.repouso || "14 horas"}
                 readOnly
-                className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 transition-all text-sm text-ios-text print:bg-transparent print:border-0 print:border-b print:border-gray-400 print:rounded-none print:px-0 print:py-0 print:text-[10px] print:text-black print:flex-1"
+                className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 transition-all text-sm text-ios-text"
               />
             </div>
           </div>
@@ -529,17 +593,17 @@ export function Audiometria({
       </div>
 
       {/* Seção 2: Tipo de Exame */}
-      <div className="bg-white rounded-ios shadow-sm border border-ios-divider p-6 relative overflow-hidden print:border-gray-300 print:border print:rounded-none print:shadow-none print:p-2 print:mb-1 print:break-inside-avoid">
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-secondary rounded-l-ios print:hidden"></div>
-        <div className="flex items-center text-ios-secondary font-semibold mb-4 border-b border-ios-divider pb-2 print:border-gray-400 print:mb-2 print:pb-1 print:text-black print:justify-center">
-          <Briefcase className="w-5 h-5 mr-2 print:hidden" />
-          <span className="print:text-xs print:font-bold uppercase">
+      <div className="bg-white rounded-ios shadow-sm border border-ios-divider p-6 relative overflow-hidden">
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-secondary rounded-l-ios"></div>
+        <div className="flex items-center text-ios-secondary font-semibold mb-4 border-b border-ios-divider pb-2">
+          <Briefcase className="w-5 h-5 mr-2" />
+          <span className="uppercase">
             TIPO DE EXAME
           </span>
         </div>
 
         {/* Grid de checkboxes para exibição em tela (oculto na impressão) */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 print:hidden">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {/* Opção de Exame Admissional */}
           <label className="flex items-center space-x-2 cursor-pointer bg-ios-bg p-3 rounded-ios-sm border border-transparent hover:border-ios-secondary/30 transition-colors">
             <input
@@ -601,7 +665,7 @@ export function Audiometria({
         </div>
 
         {/* Versão estruturada exclusivamente para impressão (PDF/A4) organizada em uma única linha contendo todos os 5 tipos de exames */}
-        <div className="hidden print:flex print:flex-row print:justify-between print:items-center print:w-full print:gap-2 print:py-1.5">
+        <div className="hidden">
           {/* Opção 1: Admissional */}
           <div className="flex items-center gap-1.5">
             {/* Checkbox somente leitura para exibir marcação formal no PDF */}
@@ -680,18 +744,18 @@ export function Audiometria({
       </div>
 
       {/* Seção 3: Meatoscopia */}
-      <div className="bg-white rounded-ios shadow-sm border border-ios-divider p-6 relative overflow-hidden print:border-gray-300 print:border print:rounded-none print:shadow-none print:p-2 print:mb-1 print:break-inside-avoid">
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-text rounded-l-ios print:hidden"></div>
-        <div className="flex items-center text-ios-text font-semibold mb-4 border-b border-ios-divider pb-2 print:border-gray-400 print:mb-2 print:pb-1 print:text-black print:justify-center">
-          <Stethoscope className="w-5 h-5 mr-2 print:hidden" />
-          <span className="uppercase tracking-widest text-sm print:text-xs print:font-bold">
+      <div className="bg-white rounded-ios shadow-sm border border-ios-divider p-6 relative overflow-hidden">
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-ios-text rounded-l-ios"></div>
+        <div className="flex items-center text-ios-text font-semibold mb-4 border-b border-ios-divider pb-2">
+          <Stethoscope className="w-5 h-5 mr-2" />
+          <span className="uppercase tracking-widest text-sm">
             MEATOSCOPIA
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="flex flex-col space-y-2 print:flex-row print:items-baseline print:space-y-0 print:gap-2">
-            <label className="text-sm font-semibold text-ios-subtext uppercase print:text-[10px] print:text-black print:min-w-[110px]">
+          <div className="flex flex-col space-y-2">
+            <label className="text-sm font-semibold text-ios-subtext uppercase">
               Orelha Direita (OD)
             </label>
             {/* Input reativo de Meatoscopia OD agora controlado via estado */}
@@ -699,12 +763,12 @@ export function Audiometria({
               type="text"
               value={meatoscopiaOD}
               onChange={(e) => setMeatoscopiaOD(e.target.value)}
-              className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm print:border-gray-400 print:rounded-none focus:outline-none focus:border-ios-primary focus:ring-1 transition-all text-sm print:bg-transparent print:border-0 print:border-b print:border-gray-400 print:rounded-none print:px-0 print:py-0 print:text-[10px] print:text-black print:flex-1"
+              className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 transition-all text-sm"
               placeholder="Normal, Presença de cerúmen, etc..."
             />
           </div>
-          <div className="flex flex-col space-y-2 print:flex-row print:items-baseline print:space-y-0 print:gap-2">
-            <label className="text-sm font-semibold text-ios-subtext uppercase print:text-[10px] print:text-black print:min-w-[110px]">
+          <div className="flex flex-col space-y-2">
+            <label className="text-sm font-semibold text-ios-subtext uppercase">
               Orelha Esquerda (OE)
             </label>
             {/* Input reativo de Meatoscopia OE agora controlado via estado */}
@@ -712,7 +776,7 @@ export function Audiometria({
               type="text"
               value={meatoscopiaOE}
               onChange={(e) => setMeatoscopiaOE(e.target.value)}
-              className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm print:border-gray-400 print:rounded-none focus:outline-none focus:border-ios-primary focus:ring-1 transition-all text-sm print:bg-transparent print:border-0 print:border-b print:border-gray-400 print:rounded-none print:px-0 print:py-0 print:text-[10px] print:text-black print:flex-1"
+              className="px-3 py-2 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 transition-all text-sm"
               placeholder="Normal, Presença de cerúmen, etc..."
             />
           </div>
@@ -720,25 +784,25 @@ export function Audiometria({
       </div>
 
       {/* Seção 4: Grade Audiométrica (Canvas Interativo Modularizado) */}
-      <div className="bg-white rounded-ios shadow-sm border border-ios-divider p-6 relative overflow-hidden print:border-gray-300 print:border print:rounded-none print:shadow-none print:p-2 print:mb-1 print:break-inside-avoid">
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-l-ios print:hidden"></div>
+      <div className="bg-white rounded-ios shadow-sm border border-ios-divider p-6 relative overflow-hidden">
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-l-ios"></div>
         {/* Renderiza o componente independente contendo a lousa interativa (OD/OE) com callback para o estado */}
-        <GradeAudiometria onStateChange={setGradeData} />
+        <GradeAudiometria ref={gradeAudiometriaRef} onStateChange={setGradeData} />
       </div>
 
       {/* Seção 5: Sinais Convencionais, Audiômetro e Logoaudiometria */}
-      <div className="space-y-6 print:space-y-2">
-        <div className="grid grid-cols-1 lg:grid-cols-2 print:grid-cols-2 gap-6 print:gap-4">
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Sinais Convencionais */}
-          <div className="bg-white h-[348px] print:h-fit rounded-ios shadow-sm border border-ios-divider p-5 flex flex-col print:border-gray-300 print:border print:rounded-none print:shadow-none print:p-2 print:break-inside-avoid">
-            <h4 className="text-sm font-bold text-center text-ios-text mb-4 border-b pb-2 print:border-gray-400 print:mb-2 print:pb-1 print:text-black uppercase tracking-wide">
+          <div className="bg-white h-[348px] rounded-ios shadow-sm border border-ios-divider p-5 flex flex-col">
+            <h4 className="text-sm font-bold text-center text-ios-text mb-4 border-b pb-2 uppercase tracking-wide">
               Sinais Convencionais
             </h4>
 
             {/* Tabela de símbolos para referência visual */}
-            <div className="w-full overflow-hidden border border-ios-divider rounded-ios-sm print:border-gray-400 print:rounded-none print:border-2 text-sm">
+            <div className="w-full overflow-hidden border border-ios-divider rounded-ios-sm text-sm">
               {/* Linha de cabeçalho da tabela */}
-              <div className="grid grid-cols-5 bg-ios-bg text-center font-medium text-ios-subtext border-b border-ios-divider divide-x divide-ios-divider print:border-gray-400 print:divide-gray-300 print:bg-gray-100 print:border-gray-400 print:divide-gray-300 print:text-black">
+              <div className="grid grid-cols-5 bg-ios-bg text-center font-medium text-ios-subtext border-b border-ios-divider divide-x divide-ios-divider">
                 <div className="py-2 text-xs">Máscara</div>
                 <div className="py-2">VA</div>
                 <div className="py-2">VO</div>
@@ -746,7 +810,7 @@ export function Audiometria({
                 <div className="py-2">VO</div>
               </div>
               {/* Linha de Sem Mascaramento */}
-              <div className="grid grid-cols-5 text-center items-center border-b border-ios-divider divide-x divide-ios-divider print:border-gray-400 print:divide-gray-300 bg-white print:divide-gray-300 print:border-gray-400 print:divide-gray-300">
+              <div className="grid grid-cols-5 text-center items-center border-b border-ios-divider divide-x divide-ios-divider bg-white">
                 <div className="py-2 text-xs font-medium text-ios-subtext bg-ios-bg/50">
                   Sem
                 </div>
@@ -756,7 +820,7 @@ export function Audiometria({
                 <div className="py-2 font-bold text-blue-500 text-lg">&gt;</div>
               </div>
               {/* Linha de Com Mascaramento */}
-              <div className="grid grid-cols-5 text-center items-center divide-x divide-ios-divider bg-white print:divide-gray-300">
+              <div className="grid grid-cols-5 text-center items-center divide-x divide-ios-divider bg-white">
                 <div className="py-2 text-xs font-medium text-ios-subtext bg-ios-bg/50">
                   Com
                 </div>
@@ -772,8 +836,8 @@ export function Audiometria({
           </div>
 
           {/* Audiômetro */}
-          <div className="bg-white h-[348px] print:h-fit rounded-ios shadow-sm border border-ios-divider p-5 flex flex-col print:border-gray-300 print:border print:rounded-none print:shadow-none print:p-2 print:break-inside-avoid">
-            <h4 className="text-sm font-bold text-center text-ios-text mb-4 border-b pb-2 print:border-gray-400 print:mb-2 print:pb-1 print:text-black uppercase tracking-wide">
+          <div className="bg-white h-[348px] rounded-ios shadow-sm border border-ios-divider p-5 flex flex-col">
+            <h4 className="text-sm font-bold text-center text-ios-text mb-4 border-b pb-2 uppercase tracking-wide">
               Audiômetro
             </h4>
             <div className="space-y-4 mt-4">
@@ -785,7 +849,7 @@ export function Audiometria({
                   type="text"
                   value={audiometroData.marca}
                   onChange={(e) => setAudiometroData({...audiometroData, marca: e.target.value})}
-                  className="flex-1 focus:outline-none px-1 py-1 text-sm bg-transparent font-semibold print:border-gray-400 print:text-[10px] print:text-black"
+                  className="flex-1 focus:outline-none px-1 py-1 text-sm bg-transparent font-semibold"
                 />
               </div>
               <div className="flex items-center">
@@ -796,7 +860,7 @@ export function Audiometria({
                   type="text"
                   value={audiometroData.modelo}
                   onChange={(e) => setAudiometroData({...audiometroData, modelo: e.target.value})}
-                  className="flex-1  focus:outline-none px-1 py-1 text-sm bg-transparent font-semibold print:border-gray-400 print:text-[10px] print:text-black"
+                  className="flex-1 focus:outline-none px-1 py-1 text-sm bg-transparent font-semibold"
                 />
               </div>
               <div className="flex items-center">
@@ -808,7 +872,7 @@ export function Audiometria({
                   placeholder="Insira aqui a Calibração"
                   value={audiometroData.calibracao}
                   onChange={(e) => setAudiometroData({...audiometroData, calibracao: e.target.value})}
-                  className="flex-1  focus:outline-none px-1 py-1 text-sm bg-transparent font-semibold print:border-gray-400 print:text-[10px] print:text-black"
+                  className="flex-1 focus:outline-none px-1 py-1 text-sm bg-transparent font-semibold"
                 />
               </div>
             </div>
@@ -816,8 +880,8 @@ export function Audiometria({
         </div>
 
         {/* Bloco de Identificação Repetido para Impressão (PDF/A4) - Exibido novamente antes da Logoaudiometria */}
-        <div className="hidden print:block print:break-before-page  print:-mt-8"></div>
-        <div className="hidden print:block print:w-full print:space-y-2 print:mb-4 print:border print:border-gray-300 print:p-2 print:rounded-none print:break-inside-avoid">
+        <div className="hidden"></div>
+        <div className="hidden">
           {/* Título de Identificação Repetida no topo do bloco */}
           <div className="text-center border-b border-gray-400 pb-1 mb-2">
             <span className="text-[10px] font-bold uppercase text-black">
@@ -987,9 +1051,13 @@ export function Audiometria({
           </div>
         </div>
 
+        
+
+
+
         {/* Logoaudiometria */}
-        <div className="bg-white rounded-ios shadow-sm border border-ios-divider p-5 space-y-6 print:border-gray-300 print:border print:rounded-none print:shadow-none print:p-2 print:space-y-1 print:break-inside-avoid">
-          <h4 className="text-sm font-bold text-center text-ios-text mb-2 border-b pb-2 print:border-gray-400 print:mb-2 print:pb-1 print:text-black uppercase tracking-wide">
+        <div className="bg-white rounded-ios shadow-sm border border-ios-divider p-5 space-y-6">
+          <h4 className="text-sm font-bold text-center text-ios-text mb-2 border-b pb-2 uppercase tracking-wide">
             Logoaudiometria
           </h4>
 
@@ -999,13 +1067,13 @@ export function Audiometria({
               <h5 className="text-[10px] font-bold text-ios-subtext uppercase tracking-widest text-center">
                 LRF - Limiar de Reconhecimento de Fala
               </h5>
-              <div className="border border-ios-divider rounded-ios-sm print:border-gray-400 print:rounded-none print:border-2 overflow-hidden text-xs">
-                <div className="grid grid-cols-4 bg-ios-bg font-bold text-ios-subtext border-b border-t border-ios-divider print:border-b print:border-t print:border-gray-400 text-center print:items-stretch">
-                  <div className="py-1 print:border-r print:border-gray-400"></div>
-                  <div className="py-1 print:border-r print:border-gray-400 flex items-center justify-center">
+              <div className="border border-ios-divider rounded-ios-sm overflow-hidden text-xs">
+                <div className="grid grid-cols-4 bg-ios-bg font-bold text-ios-subtext border-b border-t border-ios-divider text-center">
+                  <div className="py-1"></div>
+                  <div className="py-1 flex items-center justify-center">
                     Intensid.
                   </div>
-                  <div className="py-1 print:border-r print:border-gray-400 flex items-center justify-center">
+                  <div className="py-1 flex items-center justify-center">
                     Monossil.
                   </div>
                   <div className="py-1 flex items-center justify-center">
@@ -1013,14 +1081,14 @@ export function Audiometria({
                   </div>
                 </div>
                 {/* Linha Palavras Faladas (Header secundário da imagem) */}
-                <div className="grid grid-cols-4 bg-white border-b border-t border-ios-divider print:border-b print:border-t print:border-gray-400 text-center italic text-ios-subtext print:items-stretch">
-                  <div className="py-1 font-semibold bg-ios-bg/30 print:bg-gray-100 print:text-black print:border-r print:border-gray-400 flex items-center justify-center">
+                <div className="grid grid-cols-4 bg-white border-b border-t border-ios-divider text-center italic text-ios-subtext">
+                  <div className="py-1 font-semibold bg-ios-bg/30 flex items-center justify-center">
                     Pal. Faladas
                   </div>
-                  <div className="py-1 print:border-r print:border-gray-400 flex items-center justify-center">
+                  <div className="py-1 flex items-center justify-center">
                     ---
                   </div>
-                  <div className="py-1 print:border-r print:border-gray-400 flex items-center justify-center">
+                  <div className="py-1 flex items-center justify-center">
                     25
                   </div>
                   <div className="py-1 flex items-center justify-center">
@@ -1028,25 +1096,25 @@ export function Audiometria({
                   </div>
                 </div>
                 {/* Linha OD (Orelha Direita) */}
-                <div className="grid grid-cols-4 bg-white border-b border-t border-ios-divider print:border-b print:border-t print:border-gray-400 text-center items-center print:items-stretch">
-                  <div className="py-2 font-bold text-red-500 bg-red-50/30 print:bg-transparent print:text-black print:text-[10px] print:border-r print:border-gray-400 flex items-center justify-center">
+                <div className="grid grid-cols-4 bg-white border-b border-t border-ios-divider text-center items-center">
+                  <div className="py-2 font-bold text-red-500 bg-red-50/30 flex items-center justify-center">
                     OD
                   </div>
-                  <div className="py-1 px-1 print:border-r print:border-gray-400 flex items-center justify-center">
+                  <div className="py-1 px-1 flex items-center justify-center">
                     <input
                       type="text"
                       value={logoAudiometriaData.lrfODIntensidade}
-                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, lrfODIntensidade: e.target.value})}
-                      className="w-full text-center focus:outline-none text-red-600 font-medium print:text-black print:text-[10px] print:font-normal"
+                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, lrfODIntensidade: formatInputWithSuffix(e.target.value, "dB")})}
+                      className="w-full text-center focus:outline-none text-red-600 font-medium"
                       placeholder="dB"
                     />
                   </div>
-                  <div className="py-1 px-1 print:border-r print:border-gray-400 flex items-center justify-center">
+                  <div className="py-1 px-1 flex items-center justify-center">
                     <input
                       type="text"
                       value={logoAudiometriaData.lrfODMonossil}
-                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, lrfODMonossil: e.target.value})}
-                      className="w-full text-center focus:outline-none text-red-600 font-medium print:text-black print:text-[10px] print:font-normal"
+                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, lrfODMonossil: formatInputWithSuffix(e.target.value, "%")})}
+                      className="w-full text-center focus:outline-none text-red-600 font-medium"
                       placeholder="%"
                     />
                   </div>
@@ -1054,32 +1122,34 @@ export function Audiometria({
                     <input
                       type="text"
                       value={logoAudiometriaData.lrfODDissil}
-                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, lrfODDissil: e.target.value})}
-                      className="w-full text-center focus:outline-none text-red-600 font-medium print:text-black print:text-[10px] print:font-normal"
+                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, lrfODDissil: formatInputWithSuffix(e.target.value, "%")})}
+                      className="w-full text-center focus:outline-none text-red-600 font-medium"
                       placeholder="%"
                     />
                   </div>
                 </div>
                 {/* Linha OE (Orelha Esquerda) */}
-                <div className="grid grid-cols-4 bg-white border-b border-t border-ios-divider print:border-b print:border-t print:border-gray-400 text-center items-center print:items-stretch">
-                  <div className="py-2 font-bold text-blue-500 bg-blue-50/30 print:bg-transparent print:text-black print:text-[10px] print:border-r print:border-gray-400 flex items-center justify-center">
+                <div className="grid grid-cols-4 bg-white border-b border-t border-ios-divider text-center items-center">
+                  <div className="py-2 font-bold text-blue-500 bg-blue-50/30 flex items-center justify-center">
                     OE
                   </div>
-                  <div className="py-1 px-1 print:border-r print:border-gray-400 flex items-center justify-center">
+                  <div className="py-1 px-1 flex items-center justify-center">
                     <input
                       type="text"
                       value={logoAudiometriaData.lrfOEIntensidade}
-                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, lrfOEIntensidade: e.target.value})}
-                      className="w-full text-center focus:outline-none text-blue-600 font-medium print:text-black print:text-[10px] print:font-normal"
+                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, lrfOEIntensidade: formatInputWithSuffix(e.target.value, "dB")})}
+                      className="w-full text-center focus:outline-none text-blue-600 font-medium"
                       placeholder="dB"
+                      
                     />
+                   
                   </div>
-                  <div className="py-1 px-1 print:border-r print:border-gray-400 flex items-center justify-center">
+                  <div className="py-1 px-1 flex items-center justify-center">
                     <input
                       type="text"
                       value={logoAudiometriaData.lrfOEMonossil}
-                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, lrfOEMonossil: e.target.value})}
-                      className="w-full text-center focus:outline-none text-blue-600 font-medium print:text-black print:text-[10px] print:font-normal"
+                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, lrfOEMonossil: formatInputWithSuffix(e.target.value, "%")})}
+                      className="w-full text-center focus:outline-none text-blue-600 font-medium"
                       placeholder="%"
                     />
                   </div>
@@ -1087,8 +1157,8 @@ export function Audiometria({
                     <input
                       type="text"
                       value={logoAudiometriaData.lrfOEDissil}
-                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, lrfOEDissil: e.target.value})}
-                      className="w-full text-center focus:outline-none text-blue-600 font-medium print:text-black print:text-[10px] print:font-normal"
+                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, lrfOEDissil: formatInputWithSuffix(e.target.value, "%")})}
+                      className="w-full text-center focus:outline-none text-blue-600 font-medium"
                       placeholder="%"
                     />
                   </div>
@@ -1101,13 +1171,13 @@ export function Audiometria({
               <h5 className="text-[10px] font-bold text-ios-subtext uppercase tracking-widest text-center">
                 IPRF - Índice Percentual de Reconhecimento de Fala
               </h5>
-              <div className="border border-ios-divider rounded-ios-sm print:border-gray-400 print:rounded-none print:border-2 overflow-hidden text-xs">
-                <div className="grid grid-cols-4 bg-ios-bg font-bold text-ios-subtext border-b border-t border-ios-divider print:border-b print:border-t print:border-gray-400 text-center print:items-stretch">
-                  <div className="py-1 print:border-r print:border-gray-400"></div>
-                  <div className="py-1 print:border-r print:border-gray-400 flex items-center justify-center">
+              <div className="border border-ios-divider rounded-ios-sm overflow-hidden text-xs">
+                <div className="grid grid-cols-4 bg-ios-bg font-bold text-ios-subtext border-b border-t border-ios-divider text-center">
+                  <div className="py-1"></div>
+                  <div className="py-1 flex items-center justify-center">
                     Intensid.
                   </div>
-                  <div className="py-1 print:border-r print:border-gray-400 flex items-center justify-center">
+                  <div className="py-1 flex items-center justify-center">
                     Monossil.
                   </div>
                   <div className="py-1 flex items-center justify-center">
@@ -1115,14 +1185,14 @@ export function Audiometria({
                   </div>
                 </div>
                 {/* Linha Palavras Faladas */}
-                <div className="grid grid-cols-4 bg-white border-b border-t border-ios-divider print:border-b print:border-t print:border-gray-400 text-center italic text-ios-subtext print:items-stretch">
-                  <div className="py-1 font-semibold bg-ios-bg/30 print:bg-gray-100 print:text-black print:border-r print:border-gray-400 flex items-center justify-center">
+                <div className="grid grid-cols-4 bg-white border-b border-t border-ios-divider text-center italic text-ios-subtext">
+                  <div className="py-1 font-semibold bg-ios-bg/30 flex items-center justify-center">
                     Pal. Faladas
                   </div>
-                  <div className="py-1 print:border-r print:border-gray-400 flex items-center justify-center">
+                  <div className="py-1 flex items-center justify-center">
                     ---
                   </div>
-                  <div className="py-1 print:border-r print:border-gray-400 flex items-center justify-center">
+                  <div className="py-1 flex items-center justify-center">
                     25
                   </div>
                   <div className="py-1 flex items-center justify-center">
@@ -1130,25 +1200,25 @@ export function Audiometria({
                   </div>
                 </div>
                 {/* Linha OD */}
-                <div className="grid grid-cols-4 bg-white border-b border-t border-ios-divider print:border-b print:border-t print:border-gray-400 text-center items-center print:items-stretch">
-                  <div className="py-2 font-bold text-red-500 bg-red-50/30 print:bg-transparent print:text-black print:text-[10px] print:border-r print:border-gray-400 flex items-center justify-center">
+                <div className="grid grid-cols-4 bg-white border-b border-t border-ios-divider text-center items-center">
+                  <div className="py-2 font-bold text-red-500 bg-red-50/30 flex items-center justify-center">
                     OD
                   </div>
-                  <div className="py-1 px-1 print:border-r print:border-gray-400 flex items-center justify-center">
+                  <div className="py-1 px-1 flex items-center justify-center">
                     <input
                       type="text"
                       value={logoAudiometriaData.iprfODIntensidade}
-                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, iprfODIntensidade: e.target.value})}
-                      className="w-full text-center focus:outline-none text-red-600 font-medium print:text-black print:text-[10px] print:font-normal"
+                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, iprfODIntensidade: formatInputWithSuffix(e.target.value, "dB")})}
+                      className="w-full text-center focus:outline-none text-red-600 font-medium"
                       placeholder="dB"
                     />
                   </div>
-                  <div className="py-1 px-1 print:border-r print:border-gray-400 flex items-center justify-center">
+                  <div className="py-1 px-1 flex items-center justify-center">
                     <input
                       type="text"
                       value={logoAudiometriaData.iprfODMonossil}
-                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, iprfODMonossil: e.target.value})}
-                      className="w-full text-center focus:outline-none text-red-600 font-medium print:text-black print:text-[10px] print:font-normal"
+                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, iprfODMonossil: formatInputWithSuffix(e.target.value, "%")})}
+                      className="w-full text-center focus:outline-none text-red-600 font-medium"
                       placeholder="%"
                     />
                   </div>
@@ -1156,32 +1226,32 @@ export function Audiometria({
                     <input
                       type="text"
                       value={logoAudiometriaData.iprfODDissil}
-                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, iprfODDissil: e.target.value})}
-                      className="w-full text-center focus:outline-none text-red-600 font-medium print:text-black print:text-[10px] print:font-normal"
+                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, iprfODDissil: formatInputWithSuffix(e.target.value, "%")})}
+                      className="w-full text-center focus:outline-none text-red-600 font-medium"
                       placeholder="%"
                     />
                   </div>
                 </div>
                 {/* Linha OE */}
-                <div className="grid grid-cols-4 bg-white border-b border-t border-ios-divider print:border-b print:border-t print:border-gray-400 text-center items-center print:items-stretch">
-                  <div className="py-2 font-bold text-blue-500 bg-blue-50/30 print:bg-transparent print:text-black print:text-[10px] print:border-r print:border-gray-400 flex items-center justify-center">
+                <div className="grid grid-cols-4 bg-white border-b border-t border-ios-divider text-center items-center">
+                  <div className="py-2 font-bold text-blue-500 bg-blue-50/30 flex items-center justify-center">
                     OE
                   </div>
-                  <div className="py-1 px-1 print:border-r print:border-gray-400 flex items-center justify-center">
+                  <div className="py-1 px-1 flex items-center justify-center">
                     <input
                       type="text"
                       value={logoAudiometriaData.iprfOEIntensidade}
-                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, iprfOEIntensidade: e.target.value})}
-                      className="w-full text-center focus:outline-none text-blue-600 font-medium print:text-black print:text-[10px] print:font-normal"
+                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, iprfOEIntensidade: formatInputWithSuffix(e.target.value, "dB")})}
+                      className="w-full text-center focus:outline-none text-blue-600 font-medium"
                       placeholder="dB"
                     />
                   </div>
-                  <div className="py-1 px-1 print:border-r print:border-gray-400 flex items-center justify-center">
+                  <div className="py-1 px-1 flex items-center justify-center">
                     <input
                       type="text"
                       value={logoAudiometriaData.iprfOEMonossil}
-                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, iprfOEMonossil: e.target.value})}
-                      className="w-full text-center focus:outline-none text-blue-600 font-medium print:text-black print:text-[10px] print:font-normal"
+                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, iprfOEMonossil: formatInputWithSuffix(e.target.value, "%")})}
+                      className="w-full text-center focus:outline-none text-blue-600 font-medium"
                       placeholder="%"
                     />
                   </div>
@@ -1189,8 +1259,8 @@ export function Audiometria({
                     <input
                       type="text"
                       value={logoAudiometriaData.iprfOEDissil}
-                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, iprfOEDissil: e.target.value})}
-                      className="w-full text-center focus:outline-none text-blue-600 font-medium print:text-black print:text-[10px] print:font-normal"
+                      onChange={(e) => setLogoAudiometriaData({...logoAudiometriaData, iprfOEDissil: formatInputWithSuffix(e.target.value, "%")})}
+                      className="w-full text-center focus:outline-none text-blue-600 font-medium"
                       placeholder="%"
                     />
                   </div>
@@ -1202,19 +1272,19 @@ export function Audiometria({
       </div>
 
       {/* Seção 6: Laudo */}
-      <div className="bg-white rounded-ios shadow-sm border border-ios-divider p-6 relative overflow-hidden print:border-gray-300 print:border print:rounded-none print:shadow-none print:p-2 print:mb-1 print:break-inside-avoid">
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-green-500 rounded-l-ios print:hidden"></div>
-        <div className="flex items-center text-green-600 font-semibold mb-6 border-b border-ios-divider pb-2 print:border-gray-400 print:mb-2 print:pb-1 print:text-black">
-          <FileText className="w-5 h-5 mr-2 print:hidden" />
-          <span className="uppercase tracking-widest text-sm print:text-xs print:font-bold">
+      <div className="bg-white rounded-ios shadow-sm border border-ios-divider p-6 relative overflow-hidden">
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-green-500 rounded-l-ios"></div>
+        <div className="flex items-center text-green-600 font-semibold mb-6 border-b border-ios-divider pb-2">
+          <FileText className="w-5 h-5 mr-2" />
+          <span className="uppercase tracking-widest text-sm">
             Laudo
           </span>
         </div>
 
-        <div className="space-y-5 print:space-y-1">
+        <div className="space-y-5">
           {/* Limiares auditivos */}
-          <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 print:flex-row print:items-center print:space-y-0 print:space-x-4">
-            <span className="text-sm font-semibold text-ios-text print:text-[10px] print:text-black">
+          <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+            <span className="text-sm font-semibold text-ios-text">
               Limiares auditivos dentro dos limites aceitáveis:
             </span>
             <div className="flex items-center space-x-4">
@@ -1223,9 +1293,9 @@ export function Audiometria({
                   type="checkbox"
                   checked={laudoData.limiaresAceitaveis.od}
                   onChange={(e) => setLaudoData({...laudoData, limiaresAceitaveis: {...laudoData.limiaresAceitaveis, od: e.target.checked}})}
-                  className="text-green-500 focus:ring-green-500 rounded w-4 h-4 print:w-3 print:h-3"
+                  className="text-green-500 focus:ring-green-500 rounded w-4 h-4"
                 />
-                <span className="text-sm print:text-[10px] print:text-black">
+                <span className="text-sm">
                   OD
                 </span>
               </label>
@@ -1234,9 +1304,9 @@ export function Audiometria({
                   type="checkbox"
                   checked={laudoData.limiaresAceitaveis.oe}
                   onChange={(e) => setLaudoData({...laudoData, limiaresAceitaveis: {...laudoData.limiaresAceitaveis, oe: e.target.checked}})}
-                  className="text-green-500 focus:ring-green-500 rounded w-4 h-4 print:w-3 print:h-3"
+                  className="text-green-500 focus:ring-green-500 rounded w-4 h-4"
                 />
-                <span className="text-sm print:text-[10px] print:text-black">
+                <span className="text-sm">
                   OE
                 </span>
               </label>
@@ -1245,9 +1315,9 @@ export function Audiometria({
                   type="checkbox"
                   checked={laudoData.limiaresAceitaveis.bilateral}
                   onChange={(e) => setLaudoData({...laudoData, limiaresAceitaveis: {...laudoData.limiaresAceitaveis, bilateral: e.target.checked}})}
-                  className="text-green-500 focus:ring-green-500 rounded w-4 h-4 print:w-3 print:h-3"
+                  className="text-green-500 focus:ring-green-500 rounded w-4 h-4"
                 />
-                <span className="text-sm print:text-[10px] print:text-black">
+                <span className="text-sm">
                   Bilateral
                 </span>
               </label>
@@ -1261,27 +1331,27 @@ export function Audiometria({
             </span>
 
             {/* Perda OD */}
-            <div className="flex flex-col sm:flex-row sm:items-center ml-2 sm:ml-4 space-y-2 sm:space-y-0 sm:space-x-4 print:flex-row print:items-center print:space-y-0 print:space-x-4 print:ml-0">
+            <div className="flex flex-col sm:flex-row sm:items-center ml-2 sm:ml-4 space-y-2 sm:space-y-0 sm:space-x-4">
               <label className="flex items-center space-x-1 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={laudoData.perdaOD.checked}
                   onChange={(e) => setLaudoData({...laudoData, perdaOD: {...laudoData.perdaOD, checked: e.target.checked}})}
-                  className="text-ios-primary focus:ring-ios-primary rounded w-4 h-4 print:w-3 print:h-3"
+                  className="text-ios-primary focus:ring-ios-primary rounded w-4 h-4"
                 />
-                <span className="text-sm font-medium w-6 print:text-[10px] print:text-black">
+                <span className="text-sm font-medium w-6">
                   OD
                 </span>
               </label>
-              <div className="flex flex-wrap gap-4 pl-6 sm:pl-0 print:pl-0 print:gap-2">
+              <div className="flex flex-wrap gap-4 pl-6 sm:pl-0">
                 <label className="flex items-center space-x-1 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={laudoData.perdaOD.neurosensorial}
                     onChange={(e) => setLaudoData({...laudoData, perdaOD: {...laudoData.perdaOD, neurosensorial: e.target.checked}})}
-                    className="rounded text-ios-subtext print:w-3 print:h-3"
+                    className="rounded text-ios-subtext"
                   />
-                  <span className="text-sm print:text-[10px] print:text-black">
+                  <span className="text-sm">
                     Neurossensorial
                   </span>
                 </label>
@@ -1290,9 +1360,9 @@ export function Audiometria({
                     type="checkbox"
                     checked={laudoData.perdaOD.mista}
                     onChange={(e) => setLaudoData({...laudoData, perdaOD: {...laudoData.perdaOD, mista: e.target.checked}})}
-                    className="rounded text-ios-subtext print:w-3 print:h-3"
+                    className="rounded text-ios-subtext"
                   />
-                  <span className="text-sm print:text-[10px] print:text-black">
+                  <span className="text-sm">
                     Mista
                   </span>
                 </label>
@@ -1301,9 +1371,9 @@ export function Audiometria({
                     type="checkbox"
                     checked={laudoData.perdaOD.condutiva}
                     onChange={(e) => setLaudoData({...laudoData, perdaOD: {...laudoData.perdaOD, condutiva: e.target.checked}})}
-                    className="rounded text-ios-subtext print:w-3 print:h-3"
+                    className="rounded text-ios-subtext"
                   />
-                  <span className="text-sm print:text-[10px] print:text-black">
+                  <span className="text-sm">
                     Condutiva
                   </span>
                 </label>
@@ -1312,9 +1382,9 @@ export function Audiometria({
                     type="checkbox"
                     checked={laudoData.perdaOD.h6000}
                     onChange={(e) => setLaudoData({...laudoData, perdaOD: {...laudoData.perdaOD, h6000: e.target.checked}})}
-                    className="rounded text-ios-subtext print:w-3 print:h-3"
+                    className="rounded text-ios-subtext"
                   />
-                  <span className="text-sm print:text-[10px] print:text-black">
+                  <span className="text-sm">
                     6000Hz
                   </span>
                 </label>
@@ -1323,9 +1393,9 @@ export function Audiometria({
                     type="checkbox"
                     checked={laudoData.perdaOD.h8000}
                     onChange={(e) => setLaudoData({...laudoData, perdaOD: {...laudoData.perdaOD, h8000: e.target.checked}})}
-                    className="rounded text-ios-subtext print:w-3 print:h-3"
+                    className="rounded text-ios-subtext"
                   />
-                  <span className="text-sm print:text-[10px] print:text-black">
+                  <span className="text-sm">
                     8000Hz
                   </span>
                 </label>
@@ -1333,27 +1403,27 @@ export function Audiometria({
             </div>
 
             {/* Perda OE */}
-            <div className="flex flex-col sm:flex-row sm:items-center ml-2 sm:ml-4 space-y-2 sm:space-y-0 sm:space-x-4 print:flex-row print:items-center print:space-y-0 print:space-x-4 print:ml-0">
+            <div className="flex flex-col sm:flex-row sm:items-center ml-2 sm:ml-4 space-y-2 sm:space-y-0 sm:space-x-4">
               <label className="flex items-center space-x-1 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={laudoData.perdaOE.checked}
                   onChange={(e) => setLaudoData({...laudoData, perdaOE: {...laudoData.perdaOE, checked: e.target.checked}})}
-                  className="text-ios-primary focus:ring-ios-primary rounded w-4 h-4 print:w-3 print:h-3"
+                  className="text-ios-primary focus:ring-ios-primary rounded w-4 h-4"
                 />
-                <span className="text-sm font-medium w-6 print:text-[10px] print:text-black">
+                <span className="text-sm font-medium w-6">
                   OE
                 </span>
               </label>
-              <div className="flex flex-wrap gap-4 pl-6 sm:pl-0 print:pl-0 print:gap-2">
+              <div className="flex flex-wrap gap-4 pl-6 sm:pl-0">
                 <label className="flex items-center space-x-1 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={laudoData.perdaOE.neurosensorial}
                     onChange={(e) => setLaudoData({...laudoData, perdaOE: {...laudoData.perdaOE, neurosensorial: e.target.checked}})}
-                    className="rounded text-ios-subtext print:w-3 print:h-3"
+                    className="rounded text-ios-subtext"
                   />
-                  <span className="text-sm print:text-[10px] print:text-black">
+                  <span className="text-sm">
                     Neurossensorial
                   </span>
                 </label>
@@ -1362,9 +1432,9 @@ export function Audiometria({
                     type="checkbox"
                     checked={laudoData.perdaOE.mista}
                     onChange={(e) => setLaudoData({...laudoData, perdaOE: {...laudoData.perdaOE, mista: e.target.checked}})}
-                    className="rounded text-ios-subtext print:w-3 print:h-3"
+                    className="rounded text-ios-subtext"
                   />
-                  <span className="text-sm print:text-[10px] print:text-black">
+                  <span className="text-sm">
                     Mista
                   </span>
                 </label>
@@ -1373,9 +1443,9 @@ export function Audiometria({
                     type="checkbox"
                     checked={laudoData.perdaOE.condutiva}
                     onChange={(e) => setLaudoData({...laudoData, perdaOE: {...laudoData.perdaOE, condutiva: e.target.checked}})}
-                    className="rounded text-ios-subtext print:w-3 print:h-3"
+                    className="rounded text-ios-subtext"
                   />
-                  <span className="text-sm print:text-[10px] print:text-black">
+                  <span className="text-sm">
                     Condutiva
                   </span>
                 </label>
@@ -1384,9 +1454,9 @@ export function Audiometria({
                     type="checkbox"
                     checked={laudoData.perdaOE.h6000}
                     onChange={(e) => setLaudoData({...laudoData, perdaOE: {...laudoData.perdaOE, h6000: e.target.checked}})}
-                    className="rounded text-ios-subtext print:w-3 print:h-3"
+                    className="rounded text-ios-subtext"
                   />
-                  <span className="text-sm print:text-[10px] print:text-black">
+                  <span className="text-sm">
                     6000Hz
                   </span>
                 </label>
@@ -1395,9 +1465,9 @@ export function Audiometria({
                     type="checkbox"
                     checked={laudoData.perdaOE.h8000}
                     onChange={(e) => setLaudoData({...laudoData, perdaOE: {...laudoData.perdaOE, h8000: e.target.checked}})}
-                    className="rounded text-ios-subtext print:w-3 print:h-3"
+                    className="rounded text-ios-subtext"
                   />
-                  <span className="text-sm print:text-[10px] print:text-black">
+                  <span className="text-sm">
                     8000Hz
                   </span>
                 </label>
@@ -1408,19 +1478,19 @@ export function Audiometria({
           </div>
 
           {/* Observações */}
-          <div className="flex flex-col pt-2 print:flex-row print:items-start print:gap-2">
-            <label className="text-sm font-semibold text-ios-text mb-2 print:text-[10px] print:text-black print:mb-0 print:min-w-[40px] print:mt-1">
+          <div className="flex flex-col pt-2">
+            <label className="text-sm font-semibold text-ios-text mb-2">
               Obs.:
             </label>
             <div className="flex-1 flex flex-col">
               <textarea
                 value={observacoes}
                 onChange={(e) => setObservacoes(e.target.value)}
-                className="w-full min-h-[80px] p-3 bg-ios-bg border border-ios-divider rounded-ios-sm print:hidden focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 transition-all text-sm resize-y custom-scrollbar"
+                className="w-full min-h-[80px] p-3 bg-ios-bg border border-ios-divider rounded-ios-sm focus:outline-none focus:border-ios-primary focus:ring-1 focus:ring-ios-primary/50 transition-all text-sm resize-y custom-scrollbar"
                 placeholder="Observações adicionais..."
               />
               {/* Versão para impressão com duas linhas */}
-              <div className="hidden print:flex flex-col w-full text-[10px] text-black">
+              <div className="hidden flex-col w-full text-[10px] text-black">
                 <div className="border-b border-gray-400 min-h-[1.2rem] py-0.5 px-1">
                   {observacoes}
                 </div>
@@ -1432,8 +1502,8 @@ export function Audiometria({
       </div>
 
       {/* Seção 7: Assinaturas - Captura interativa em tela e exibição no laudo impresso (Adicionado a classe 'relative' para o termo posicionado no canto inferior direito) */}
-      <div className="relative print:block bg-white/60 backdrop-blur-sm rounded-ios shadow-sm border border-ios-divider p-12 mt-12 print:bg-transparent print:border-0 print:p-0 print:pt-0 print:-mt-4 print:shadow-none print:break-inside-avoid">
-        <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-12 print:mt-4 print:gap-4">
+      <div className="relative bg-white/60 backdrop-blur-sm rounded-ios shadow-sm border border-ios-divider p-12 mt-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
           {/* Assinatura do Funcionário/Colaborador (Interativa em tela) */}
           <div className="flex flex-col items-center">
             {employeeSignature ? (
@@ -1449,7 +1519,7 @@ export function Audiometria({
                 <button
                   type="button"
                   onClick={() => setIsSignatureModalOpen(true)}
-                  className="absolute -top-3 -right-6 p-1 bg-white hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-full border border-gray-200 shadow-sm transition-all active:scale-90 print:hidden"
+                  className="absolute -top-3 -right-6 p-1 bg-white hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-full border border-gray-200 shadow-sm transition-all active:scale-90"
                   title="Refazer assinatura"
                 >
                   <Undo2 className="w-3.5 h-3.5" />
@@ -1460,7 +1530,7 @@ export function Audiometria({
               <button
                 type="button"
                 onClick={() => setIsSignatureModalOpen(true)}
-                className="flex flex-col items-center group focus:outline-none transition-all active:scale-95 mb-1 print:hidden"
+                className="flex flex-col items-center group focus:outline-none transition-all active:scale-95 mb-1"
                 title="Clique para assinar"
               >
                 {/* Ícone PencilIcon interativo com transição premium ao passar o mouse */}
@@ -1473,12 +1543,12 @@ export function Audiometria({
 
             {/* Espaço reservado para visualização impressa em papel quando não assinado */}
             {!employeeSignature && (
-              <div className="hidden print:block h-14 w-full"></div>
+              <div className="hidden h-14 w-full"></div>
             )}
 
             {/* Linha horizontal delimitadora da assinatura */}
-            <div className="w-full max-w-[250px] border-b border-ios-text mb-2 print:border-black"></div>
-            <span className="text-sm text-ios-subtext print:text-[10px] print:text-black uppercase font-bold text-center">
+            <div className="w-full max-w-[250px] border-b border-ios-text mb-2"></div>
+            <span className="text-sm text-ios-subtext uppercase font-bold text-center">
               Assinatura do Funcionário(a)
             </span>
           </div>
@@ -1491,8 +1561,8 @@ export function Audiometria({
               alt="Assinatura do Fonoaudiólogo"
               className="h-14 object-contain mb-1"
             />
-            <div className="w-full max-w-[250px] border-b border-ios-text mb-2 print:border-black"></div>
-            <span className="text-sm text-ios-subtext print:text-[10px] mb-4 print:text-black uppercase font-bold text-center">
+            <div className="w-full max-w-[250px] border-b border-ios-text mb-2"></div>
+            <span className="text-sm text-ios-subtext mb-4 uppercase font-bold text-center">
               Assinatura do Fonoaudiólogo(a)
             </span>
           </div>
@@ -1503,7 +1573,7 @@ export function Audiometria({
           // Aciona a abertura do termo de reconhecimento de perda auditiva
           onClick={() => setIsTermoModalOpen(true)}
           // Contêiner absoluto posicionado no canto inferior direito com padding, borda e fundo estilizado no padrão iOS
-          className={`absolute bottom-2 right-3 flex items-center space-x-1.5 px-3 py-1.5 rounded-full transition-all duration-200 cursor-pointer select-none print:hidden border shadow-sm group active:scale-95 ${termoData
+          className={`absolute bottom-2 right-3 flex items-center space-x-1.5 px-3 py-1.5 rounded-full transition-all duration-200 cursor-pointer select-none  border shadow-sm group active:scale-95 ${termoData
             ? "bg-emerald-50 hover:bg-emerald-100 border-emerald-100 text-emerald-600"
             : "bg-blue-50 hover:bg-blue-100 border-blue-100 text-ios-primary"
             }`}
@@ -1528,9 +1598,9 @@ export function Audiometria({
       </div>
 
       {/* Botão de salvar provisório */}
-      <div className="flex justify-between pt-4 pb-8 print:hidden">
+      <div className="flex justify-between pt-4 pb-8">
         {onBack && (
-          <div className="flex justify-start print:hidden ">
+          <div className="flex justify-start">
             <button
               onClick={onBack}
               className="group flex items-center justify-center space-x-2 text-gray-500 hover:text-ios-primary transition-colors hover:bg-white/60 px-4 py-2 rounded-lg active:scale-95 font-medium shadow-sm border border-transparent hover:border-gray-200/60"
@@ -1544,7 +1614,7 @@ export function Audiometria({
         <button
           onClick={handleSaveAudiometria}
           disabled={isGenerating}
-          className={`flex items-center px-6 py-3 rounded-ios-btn font-semibold shadow-lg transition-all transform print:hidden ${isGenerating ? 'bg-gray-400 cursor-not-allowed text-white' : 'bg-ios-primary hover:bg-ios-primary/90 text-white shadow-ios-primary/30 hover:scale-100 active:scale-95'}`}
+          className={`flex items-center px-6 py-3 rounded-ios-btn font-semibold shadow-lg transition-all transform  ${isGenerating ? 'bg-gray-400 cursor-not-allowed text-white' : 'bg-ios-primary hover:bg-ios-primary/90 text-white shadow-ios-primary/30 hover:scale-100 active:scale-95'}`}
         >
           {isGenerating ? (
              <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full mr-2"></div>
@@ -1572,6 +1642,7 @@ export function Audiometria({
         </div>
       )}
 
+
       {/* Modal Premium de Assinatura do Funcionário */}
       <SignatureScreen
         isOpen={isSignatureModalOpen}
@@ -1598,7 +1669,7 @@ export function Audiometria({
 
       {/* Exibição para Impressão Conjunta do Termo de Perda Auditiva (Apenas se preenchido e confirmado) */}
       {termoData && (
-        <div className="hidden print:block print:break-before-page w-full text-black print:-pt-4">
+        <div className="hidden w-full text-black">
           <div className="w-full text-center font-bold text-black mb-2"></div>
           {/* Título Oficial */}
           <div className="text-center space-y-1 border-b pb-4 border-black mb-6">
@@ -1904,7 +1975,7 @@ export function Audiometria({
           </div>
 
           {/* Assinaturas */}
-          <div className="grid grid-cols-2 gap-12 pt-2 print:pt-[8px]">
+          <div className="grid grid-cols-2 gap-12 pt-2">
             {/* Examinador */}
             <div className="flex flex-col items-center justify-end h-full">
               <img

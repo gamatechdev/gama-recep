@@ -1,5 +1,8 @@
+// Importa o React e seus hooks fundamentais do pacote react
 import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
-import { supabase } from '../services/supabaseClient';
+// Importa o cliente do Supabase a partir do arquivo na raiz do projeto para realizar consultas no banco
+import { supabase } from '../supabaseClient';
+// Importa as interfaces de tipo personalizadas a partir do arquivo central de tipos
 import { ChatTag, Message, User, Unidade } from '../types';
 import { AppointmentModal } from './AppointmentModal';
 import { toast } from 'sonner';

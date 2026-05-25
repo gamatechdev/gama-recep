@@ -119,6 +119,47 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
     // Estado para controlar qual agendamento está gerando a ficha (exibe spinner no botão)
     const [generatingFichaId, setGeneratingFichaId] = useState<number | null>(null);
 
+    // Estado para armazenar quais colaboradores possuem PDF de audiometria pronto
+    const [audiometriaStatus, setAudiometriaStatus] = useState<Record<string, boolean>>({});
+
+    useEffect(() => {
+        // Função para buscar no banco se a audiometria tem um PDF (audiometria_url)
+        const fetchAudiometriaStatus = async () => {
+            // Pegamos os IDs dos colaboradores que têm audiometria como Finalizado
+            const colaboradorIds = appointments
+                .filter(a => a.audiometria === 'Finalizado')
+                .map(a => a.colaborador_id)
+                .filter(Boolean);
+                
+            if (colaboradorIds.length === 0) return;
+            
+            // Removemos IDs duplicados
+            const uniqueIds = Array.from(new Set(colaboradorIds));
+
+            // Fazemos uma consulta buscando apenas as audiometrias com URL válida
+            const { data, error } = await supabase
+                .from('audiometria')
+                .select('colaborador, audiometria_url')
+                .in('colaborador', uniqueIds)
+                .not('audiometria_url', 'is', null);
+
+            if (!error && data) {
+                const statusMap: Record<string, boolean> = {};
+                data.forEach(item => {
+                    if (item.audiometria_url) {
+                        statusMap[item.colaborador] = true;
+                    }
+                });
+                // Atualizamos o estado mantendo os que já existiam
+                setAudiometriaStatus(prev => ({ ...prev, ...statusMap }));
+            }
+        };
+
+        if (appointments.length > 0) {
+            fetchAudiometriaStatus();
+        }
+    }, [appointments]);
+
     useEffect(() => {
         // Debounce search or fetch agenda
         const timeoutId = setTimeout(() => {
@@ -1269,7 +1310,7 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                                         {apt.enviado_empresa && (
                                             <span className="bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-indigo-100 flex items-center gap-1">
                                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                                                Agendado via sistema
+                                                Gama-clientes
                                             </span>
                                         )}
                                     </div>
@@ -1404,7 +1445,7 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                                     <button
                                         onClick={async (e) => {
                                             e.stopPropagation();
-                                            if (apt.audiometria === 'Finalizado') {
+                                            if (audiometriaStatus[apt.colaborador_id]) {
                                                 setGeneratingFichaId(apt.id); // reuso do spinner para o loading
                                                 try {
                                                     // Busca a URL na tabela audiometria vinculada a este colaborador
@@ -1430,15 +1471,15 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                                                     setGeneratingFichaId(null);
                                                 }
                                             } else {
-                                                toast.info("A audiometria deste paciente ainda não foi finalizada.");
+                                                toast.info("O PDF da audiometria ainda não foi gerado ou enviado ao servidor.");
                                             }
                                         }}
-                                        className={`p-3 rounded-xl transition-all relative border ${apt.audiometria === 'Finalizado'
+                                        className={`p-3 rounded-xl transition-all relative border ${audiometriaStatus[apt.colaborador_id]
                                                 ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border-emerald-100'
                                                 : 'text-gray-400 bg-gray-50 hover:bg-gray-100 border-gray-100'
                                             }`}
 
-                                        title={apt.audiometria === 'Finalizado' ? "Baixar Audiometria" : "Audiometria não realizada"}
+                                        title={audiometriaStatus[apt.colaborador_id] ? "Baixar Audiometria" : "Audiometria sem PDF no servidor"}
                                         disabled={generatingFichaId === apt.id}
                                     >
                                         {generatingFichaId === apt.id ? (
@@ -1449,7 +1490,7 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                                         ) : (
                                             <>
                                                 <AudioWaveform className="w-6 h-6" />
-                                                {apt.audiometria === 'Finalizado' && (
+                                                {audiometriaStatus[apt.colaborador_id] && (
                                                     <div className="absolute -bottom-1 -right-1 bg-emerald-500 rounded-full p-0.5 shadow-sm border-2 border-white">
                                                         <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

@@ -140,17 +140,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <span className="font-medium tracking-wide">Estatísticas</span>
         </button>
 
-        <button
-          onClick={() => setActiveTab("audiometriamenu")}
-          className={`w-full flex items-center justify-start gap-4 px-4 py-3.5 rounded-ios-btn transition-all duration-300 group ${
-            activeTab === "audiometriamenu"
-              ? "bg-ios-primary text-white shadow-lg shadow-ios-primary/25"
-              : "text-ios-subtext hover:bg-white hover:text-ios-text"
-          }`}
-        >
-          <Headphones className="w-6 h-6" />
-          <span className="font-medium tracking-wide">Audiometria</span>
-        </button>
+
       </nav>
 
       {/* Perfil do Usuário e Logout */}

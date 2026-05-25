@@ -540,15 +540,24 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Define a função que alterna a seleção manual de formulários de prontuário
+  // Define a função que alterna a seleção manual de formulários de prontuário e sincroniza com os exames
   const toggleFormulario = (formValue: string) => {
+    // Busca na constante de mapeamento quais exames resultam neste formulário específico
+    const examesAssociados = Object.keys(EXAM_TO_FORMULARIO_MAP).filter(
+      exam => EXAM_TO_FORMULARIO_MAP[exam] === formValue
+    );
+
     // Verifica se o formulário correspondente já está na lista dos selecionados
     if (selectedFormularios.includes(formValue)) {
       // Remove o formulário da seleção caso já estivesse marcado
       setSelectedFormularios(selectedFormularios.filter(f => f !== formValue));
+      // Se houver exames associados a esse formulário, remove-os da lista de exames também
+      setSelectedExams(prev => prev.filter(e => !examesAssociados.includes(e)));
     } else {
       // Insere o formulário na lista dos selecionados caso não estivesse marcado
       setSelectedFormularios([...selectedFormularios, formValue]);
+      // Se houver exames associados a esse formulário, adiciona-os à lista de exames automaticamente
+      setSelectedExams(prev => [...new Set([...prev, ...examesAssociados])]);
     }
   };
 

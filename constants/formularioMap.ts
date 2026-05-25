@@ -12,6 +12,7 @@
 
 // Mapeamento: Nome exato do exame -> value do formulário (FORMULARIOS_OPTIONS)
 export const EXAM_TO_FORMULARIO_MAP: Record<string, string> = {
+  "Avaliação Clínica":       "FICHA_CLINICA",
   "Audiometria":             "AUDIOMETRIA",
   "Acuidade Visual":         "ACUIDADE_VISUAL",
   "Avaliação Psicossocial":  "AVALIACAO_PSICOSSOCIAL_SIMPLES",

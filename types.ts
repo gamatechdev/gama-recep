@@ -1,8 +1,25 @@
+// Interface que representa uma etiqueta/tag de conversa no chat, utilizada para listagem e agrupamento
 export interface ChatTag {
+  // Número de telefone do contato (identificador único no WhatsApp)
   phone: string;
+  // Nome cadastrado ou exibido do contato
   name?: string;
+  // Nome amigável do chat ou grupo
   chatname?: string;
+  // URL da foto de perfil do contato obtida do Z-API
   senderphoto?: string;
+  // Mensagem correspondente ao termo de busca quando filtrado
+  matched_message?: string;
+  // Última mensagem recebida ou enviada nesta conversa
+  last_message?: string;
+  // Horário em que a mensagem buscada foi enviada
+  matched_time?: string;
+  // Data e hora da última atualização da conversa
+  updated_at?: string;
+  // Flag indicando se há notificações pendentes não lidas
+  notificado?: boolean;
+  // ID do setor (departamento) associado a este chat para fins de filtragem
+  tag?: number;
 }
 
 export interface Message {
