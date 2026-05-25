@@ -1578,7 +1578,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           </div>
 
           <div className="space-y-6">
-            <h3 className="text-sm uppercase tracking-wider text-ios-subtext font-bold">Observações Clínicas</h3>
+            <h3 className="text-sm uppercase tracking-wider text-ios-subtext font-bold">Observações</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <textarea rows={3} value={obsClinica} onChange={(e) => setObsClinica(e.target.value)} className="w-full p-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" placeholder="Obs Clínicas" />
               <textarea rows={3} value={obsLaboratorial} onChange={(e) => setObsLaboratorial(e.target.value)} className="w-full p-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" placeholder="Obs Laboratoriais" />
