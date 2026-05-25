@@ -1029,6 +1029,8 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
             table += `<th ${styleGreen}>ASO's a cobrar</th>`;
             table += `<th ${styleGreen}>RAC a cobrar</th>`;
             table += `<th ${styleGreen}>Observações</th>`; // Adicionada coluna Observações
+            table += `<th ${styleGreen}>Obs Clínicas</th>`;
+            table += `<th ${styleGreen}>Obs Laboratoriais</th>`;
 
             // Colunas Dinâmicas (Exames - Azul)
             EXAMES_LIST_EXPORT.forEach(exame => {
@@ -1052,6 +1054,8 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                 const cpf = item.colaboradores?.cpf || '';
                 const dtLib = item.aso_liberado ? new Date(item.aso_liberado).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '';
                 const observacoes = capitalizeWords(item.obs_agendamento || ''); // Adicionada coluna Observações
+                const obsClinicas = capitalizeWords(item.observacoes || '');
+                const obsLaboratoriais = capitalizeWords(item.observacoes_laboratorial || '');
                 const tipo = capitalizeWords(item.tipo || '');
                 const valor = item.valor ? item.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '';
 
@@ -1076,6 +1080,8 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                 table += `<td style="text-align:center;">${item.aso_qtd_cobrar || 0}</td>`;
                 table += `<td style="text-align:center;">${item.rac_qtd_cobrar || 0}</td>`;
                 table += `<td>${observacoes}</td>`; // Adicionada coluna Observações
+                table += `<td>${obsClinicas}</td>`;
+                table += `<td>${obsLaboratoriais}</td>`;
 
                 EXAMES_LIST_EXPORT.forEach(exame => {
                     const hasExam = item.exames_snapshot && item.exames_snapshot.includes(exame.nome);
