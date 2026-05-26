@@ -12,7 +12,8 @@ import AsoDocument from "./components/AsoDocument";
 import { AudiometriaMenu } from "./components/Audiometria/AudiometriaMenu";
 import { Agendamento } from "./types";
 import { TabType } from "./components/Sidebar";
-import { Toaster } from "sonner";
+// Importa o componente de toast e a função de notificação do Sonner
+import { Toaster, toast } from "sonner";
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
@@ -33,6 +34,7 @@ const App: React.FC = () => {
     useState<Agendamento | null>(null);
 
   useEffect(() => {
+    // Inicializa a sessão do Supabase e monitora mudanças de autenticação
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
@@ -46,6 +48,72 @@ const App: React.FC = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Ref para evitar restaurações duplicadas (especialmente em Strict Mode)
+  const hasRestoredDraftRef = React.useRef(false);
+
+  // Efeito que verifica se há um rascunho de audiometria ativo ao recarregar a página
+  // Procura por qualquer chave com o padrão 'gama_audio_draft_*' no localStorage
+  useEffect(() => {
+    // Só executa após a sessão estar carregada, usuário autenticado e se ainda não restaurou
+    if (loading || !session || hasRestoredDraftRef.current) return;
+
+    // Itera sobre todas as chaves do localStorage para encontrar um rascunho ativo
+    for (let i = 0; i < localStorage.length; i++) {
+      // Obtém cada chave armazenada no navegador
+      const key = localStorage.key(i);
+
+      // Verifica se a chave corresponde ao padrão de rascunho de audiometria
+      if (key && key.startsWith("gama_audio_draft_")) {
+        try {
+          // Lê o conteúdo JSON do rascunho
+          const draftRaw = localStorage.getItem(key);
+          if (!draftRaw) continue;
+
+          // Converte o JSON armazenado em objeto
+          const draft = JSON.parse(draftRaw);
+          // Verifica se o rascunho contém o ID do agendamento
+          if (!draft.agendamentoId) continue;
+
+          // Marca como restaurado para evitar múltiplas execuções e toasts duplicados
+          hasRestoredDraftRef.current = true;
+
+          // Busca o agendamento completo no Supabase pelo ID armazenado no rascunho
+          supabase
+            .from("agendamentos")
+            .select(`
+              *,
+              colaboradores:colaboradores!agendamentos_colaborador_id_fkey (id, nome, cpf, data_nascimento, sexo, cargos(nome), setor),
+              unidades:unidades!agendamentos_unidade_fkey (id, nome_unidade)
+            `)
+            .eq("id", draft.agendamentoId)
+            .single()
+            .then(({ data: agendamento, error }) => {
+              // Se encontrou o agendamento e não há erro, restaura a tela de audiometria
+              if (!error && agendamento) {
+                // Define o agendamento restaurado como o agendamento ativo de audiometria
+                setAudiometriaAppointment(agendamento as unknown as Agendamento);
+                // Redireciona para a tela de audiometria automaticamente
+                setActiveTab("audiometriamenu");
+                
+                // Informa a fonoaudióloga que o rascunho foi restaurado
+                toast.info("Rascunho de audiometria restaurado! Continue de onde parou.", {
+                  id: "draft-restore",
+                  duration: 2000
+                });
+              }
+            });
+
+          // Sai do loop após encontrar o primeiro rascunho ativo
+          break;
+        } catch {
+          // Ignora rascunhos corrompidos silenciosamente
+          continue;
+        }
+      }
+    }
+  // Reexecuta somente quando a sessão ou o estado de carregamento mudar
+  }, [loading, session]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

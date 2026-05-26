@@ -1187,7 +1187,7 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                 onChange={handleProntuarioFileChange}
             />
 
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col bg-red gap-6">
                 <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
                     <div className="flex flex-col gap-4">
                         <h2 className="text-3xl font-bold text-ios-text tracking-tight">Agenda</h2>
@@ -1302,7 +1302,13 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
             ) : (
                 <div className="grid gap-4 animate-in slide-in-from-bottom-4 duration-500">
                     {appointments.map((apt) => (
-                        <div key={apt.id} className={`group bg-white hover:bg-ios-cardHover p-5 rounded-ios-sm shadow-sm hover:shadow-md border transition-all duration-300 flex flex-col md:flex-row md:items-center justify-between gap-4 ${apt.prioridade ? 'border-l-4 border-l-red-500 border-t-gray-100 border-r-gray-100 border-b-gray-100' : 'border-gray-100'}`}>
+                        <div key={apt.id} className={`group relative bg-white hover:bg-ios-cardHover p-5 rounded-ios-sm shadow-sm hover:shadow-md border transition-all duration-300 flex flex-col md:flex-row md:items-center justify-between gap-4 ${apt.prioridade ? 'border-l-4 border-l-red-500 border-t-gray-100 border-r-gray-100 border-b-gray-100' : 'border-gray-100'}`}>
+                            {apt.enviado_empresa && (
+                                <span className="absolute top-2 right-2 bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-indigo-100 flex items-center gap-1 whitespace-nowrap shadow-sm z-10">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                                    Gama-clientes
+                                </span>
+                            )}
                             <div className="flex items-center gap-5 flex-1 cursor-pointer" onClick={() => onEditAppointment(apt)} title="Clique para editar detalhes">
                                 <div className={`w-14 h-14 rounded-2xl flex-shrink-0 flex items-center justify-center text-xl font-bold shadow-sm transition-colors ${apt.compareceu ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
                                     {apt.colaboradores?.nome?.charAt(0) || '?'}
@@ -1313,12 +1319,6 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                                             {apt.colaboradores?.nome || 'Desconhecido'}
                                         </h4>
                                         {apt.prioridade && (<span className="bg-red-50 text-red-600 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-red-100">Prioridade</span>)}
-                                        {apt.enviado_empresa && (
-                                            <span className="bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-indigo-100 flex items-center gap-1">
-                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                                                Gama-clientes
-                                            </span>
-                                        )}
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2 mb-1">
                                         <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 flex items-center gap-1">

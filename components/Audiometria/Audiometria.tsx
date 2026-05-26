@@ -49,6 +49,40 @@ interface AudiometriaProps {
   onBack?: () => void;
   // Callback disparado quando o documento for salvo com sucesso
   onSaveSuccess?: () => void;
+  // --- Props elevadas para persistência de rascunho via AudiometriaMenu ---
+  // Meatoscopia da Orelha Direita elevada (controlada pelo pai para persistência)
+  meatoscopiaOD?: string;
+  setMeatoscopiaOD?: React.Dispatch<React.SetStateAction<string>>;
+  // Meatoscopia da Orelha Esquerda elevada (controlada pelo pai para persistência)
+  meatoscopiaOE?: string;
+  setMeatoscopiaOE?: React.Dispatch<React.SetStateAction<string>>;
+  // Campo de observações clínicas elevado (controlado pelo pai para persistência)
+  observacoes?: string;
+  setObservacoes?: React.Dispatch<React.SetStateAction<string>>;
+  // Tipo do exame elevado (controlado pelo pai para persistência)
+  tipoExame?: string;
+  setTipoExame?: React.Dispatch<React.SetStateAction<string>>;
+  // Dados do audiômetro elevados (controlados pelo pai para persistência)
+  audiometroData?: { marca: string; modelo: string; calibracao: string };
+  setAudiometroData?: React.Dispatch<React.SetStateAction<{ marca: string; modelo: string; calibracao: string }>>;
+  // Dados da logoaudiometria elevados (controlados pelo pai para persistência)
+  logoAudiometriaData?: {
+    lrfODIntensidade: string; lrfODMonossil: string; lrfODDissil: string;
+    lrfOEIntensidade: string; lrfOEMonossil: string; lrfOEDissil: string;
+    iprfODIntensidade: string; iprfODMonossil: string; iprfODDissil: string;
+    iprfOEIntensidade: string; iprfOEMonossil: string; iprfOEDissil: string;
+  };
+  setLogoAudiometriaData?: React.Dispatch<React.SetStateAction<any>>;
+  // Dados do laudo elevados (controlados pelo pai para persistência)
+  laudoData?: {
+    limiaresAceitaveis: { od: boolean; oe: boolean; bilateral: boolean };
+    perdaOD: { checked: boolean; neurosensorial: boolean; mista: boolean; condutiva: boolean; h6000: boolean; h8000: boolean };
+    perdaOE: { checked: boolean; neurosensorial: boolean; mista: boolean; condutiva: boolean; h6000: boolean; h8000: boolean };
+  };
+  setLaudoData?: React.Dispatch<React.SetStateAction<any>>;
+  // Dados da grade audiométrica elevados (controlados pelo pai para persistência)
+  gradeData?: { pointsOD: Point[]; pointsOE: Point[]; linesOD: Line[]; linesOE: Line[] } | null;
+  setGradeData?: React.Dispatch<React.SetStateAction<any>>;
 }
 
 // Função auxiliar para adicionar sufixo (dB ou %)
@@ -65,14 +99,42 @@ export function Audiometria({
   anamneseAnswers,
   setPatientData,
   onBack,
-  onSaveSuccess
+  onSaveSuccess,
+  // Desestrutura as props elevadas de persistência do AudiometriaMenu
+  meatoscopiaOD: meatoscopiaODProp,
+  setMeatoscopiaOD: setMeatoscopiaODProp,
+  meatoscopiaOE: meatoscopiaOEProp,
+  setMeatoscopiaOE: setMeatoscopiaOEProp,
+  observacoes: observacoesProp,
+  setObservacoes: setObservacoesProp,
+  tipoExame: tipoExameProp,
+  setTipoExame: setTipoExameProp,
+  audiometroData: audiometroDataProp,
+  setAudiometroData: setAudiometroDataProp,
+  logoAudiometriaData: logoAudiometriaDataProp,
+  setLogoAudiometriaData: setLogoAudiometriaDataProp,
+  laudoData: laudoDataProp,
+  setLaudoData: setLaudoDataProp,
+  gradeData: gradeDataProp,
+  setGradeData: setGradeDataProp,
 }: AudiometriaProps) {
-  // Estados para os campos de Meatoscopia (OD e OE) para sincronização e exibição duplicada no PDF
-  const [meatoscopiaOD, setMeatoscopiaOD] = useState("");
-  const [meatoscopiaOE, setMeatoscopiaOE] = useState("");
+  // Estados locais de fallback para Meatoscopia OD (usados apenas se as props elevadas não forem fornecidas)
+  const [meatoscopiaODLocal, setMeatoscopiaODLocal] = useState("");
+  // Estados locais de fallback para Meatoscopia OE
+  const [meatoscopiaOELocal, setMeatoscopiaOELocal] = useState("");
+  // Estado local de fallback para observações
+  const [observacoesLocal, setObservacoesLocal] = useState("");
 
-  // Estado para o campo de observações
-  const [observacoes, setObservacoes] = useState("");
+  // Usa a prop elevada se disponível (modo persistido), senão usa o estado local (fallback)
+  const meatoscopiaOD = meatoscopiaODProp !== undefined ? meatoscopiaODProp : meatoscopiaODLocal;
+  // Setter inteligente: encaminha para o pai se a prop existir, senão usa o local
+  const setMeatoscopiaOD = setMeatoscopiaODProp || setMeatoscopiaODLocal;
+  // Aplica o mesmo padrão para meatoscopia OE
+  const meatoscopiaOE = meatoscopiaOEProp !== undefined ? meatoscopiaOEProp : meatoscopiaOELocal;
+  const setMeatoscopiaOE = setMeatoscopiaOEProp || setMeatoscopiaOELocal;
+  // Aplica o mesmo padrão para observações clínicas
+  const observacoes = observacoesProp !== undefined ? observacoesProp : observacoesLocal;
+  const setObservacoes = setObservacoesProp || setObservacoesLocal;
 
   // Estado para mostrar o preview do PDF no Modal
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -85,10 +147,14 @@ export function Audiometria({
   );
   // Estado para controlar a visibilidade do modal do Termo de Reconhecimento de Perda Auditiva
   const [isTermoModalOpen, setIsTermoModalOpen] = useState(false);
-  // Estado para armazenar o tipo de exame selecionado (Admissional, Periódico, etc.)
-  const [tipoExame, setTipoExame] = useState<string>(
+  // Estado local de fallback para o tipo de exame
+  const [tipoExameLocal, setTipoExameLocal] = useState<string>(
     appointment?.tipo || "Admissional",
   );
+  // Usa a prop elevada se disponível, senão usa o estado local
+  const tipoExame = tipoExameProp !== undefined ? tipoExameProp : tipoExameLocal;
+  // Setter inteligente que encaminha para o pai se a prop existir
+  const setTipoExame = (setTipoExameProp as React.Dispatch<React.SetStateAction<string>>) || setTipoExameLocal;
   // Estado para armazenar os dados preenchidos e confirmados do Termo de Perda Auditiva
   const [termoData, setTermoData] = useState<{
     // Nome completo do colaborador
@@ -139,34 +205,61 @@ export function Audiometria({
     employeeSignature: string | null;
   } | null>(null);
 
-  // Novos estados para mapear os campos não controlados e enviar em JSON
-  const [gradeData, setGradeData] = useState<{ pointsOD: Point[], pointsOE: Point[], linesOD: Line[], linesOE: Line[] } | null>(null);
-  
+  // Estado local de fallback para a grade audiométrica
+  const [gradeDataLocal, setGradeDataLocal] = useState<{ pointsOD: Point[], pointsOE: Point[], linesOD: Line[], linesOE: Line[] } | null>(null);
+  // Usa a prop elevada se disponível, senão usa o estado local
+  const gradeData = gradeDataProp !== undefined ? gradeDataProp : gradeDataLocal;
+  // Setter inteligente para o gradeData
+  const setGradeData = setGradeDataProp || setGradeDataLocal;
+
   // Referência para o componente GradeAudiometria, permitindo exportar as imagens desenhadas
   const gradeAudiometriaRef = useRef<GradeAudiometriaRef>(null);
 
-  const [audiometroData, setAudiometroData] = useState({
+  // Estado local de fallback para os dados do audiômetro
+  const [audiometroDataLocal, setAudiometroDataLocal] = useState({
     marca: "VIBRASOM",
     modelo: "AVS-500",
     calibracao: ""
   });
+  // Usa a prop elevada se disponível, senão usa o estado local
+  const audiometroData = audiometroDataProp !== undefined ? audiometroDataProp : audiometroDataLocal;
+  // Setter inteligente para os dados do audiômetro
+  const setAudiometroData = (setAudiometroDataProp as React.Dispatch<React.SetStateAction<any>>) || setAudiometroDataLocal;
 
-  const [logoAudiometriaData, setLogoAudiometriaData] = useState({
+  // Estado local de fallback para os dados da logoaudiometria
+  const [logoAudiometriaDataLocal, setLogoAudiometriaDataLocal] = useState({
     lrfODIntensidade: "", lrfODMonossil: "", lrfODDissil: "",
     lrfOEIntensidade: "", lrfOEMonossil: "", lrfOEDissil: "",
     iprfODIntensidade: "", iprfODMonossil: "", iprfODDissil: "",
     iprfOEIntensidade: "", iprfOEMonossil: "", iprfOEDissil: ""
   });
+  // Usa a prop elevada se disponível, senão usa o estado local
+  const logoAudiometriaData = logoAudiometriaDataProp !== undefined ? logoAudiometriaDataProp : logoAudiometriaDataLocal;
+  // Setter inteligente para os dados da logoaudiometria
+  const setLogoAudiometriaData = (setLogoAudiometriaDataProp as React.Dispatch<React.SetStateAction<any>>) || setLogoAudiometriaDataLocal;
 
-  const [laudoData, setLaudoData] = useState({
+  // Estado local de fallback para os dados do laudo audiométrico
+  const [laudoDataLocal, setLaudoDataLocal] = useState({
     limiaresAceitaveis: { od: false, oe: false, bilateral: false },
     perdaOD: { checked: false, neurosensorial: false, mista: false, condutiva: false, h6000: false, h8000: false },
     perdaOE: { checked: false, neurosensorial: false, mista: false, condutiva: false, h6000: false, h8000: false }
   });
+  // Usa a prop elevada se disponível, senão usa o estado local
+  const laudoData = laudoDataProp !== undefined ? laudoDataProp : laudoDataLocal;
+  // Setter inteligente para os dados do laudo
+  const setLaudoData = (setLaudoDataProp as React.Dispatch<React.SetStateAction<any>>) || setLaudoDataLocal;
 
   const [isGenerating, setIsGenerating] = useState(false);
 
-
+  // Efeito para rolar a tela para o topo ao montar o componente
+  useEffect(() => {
+    const scrollContainer = document.getElementById('main-scroll-container');
+    if (scrollContainer) {
+      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, []);
 
   // Toda a lógica de desenho da grade audiométrica (OD/OE) e da assinatura digital foi transferida para componentes dedicados.
 
@@ -178,6 +271,13 @@ export function Audiometria({
       // Exibe notificação flutuante de erro se o colaborador não for encontrado
       toast.error("Erro: Colaborador não identificado.");
       // Aborta a execução do salvamento
+      return;
+    }
+
+    // Verifica se a assinatura do colaborador foi coletada
+    if (!employeeSignature) {
+      // Exibe notificação flutuante de erro solicitando a assinatura
+      toast.error("Por favor, colete a assinatura do colaborador antes de salvar.");
       return;
     }
 
@@ -213,9 +313,9 @@ export function Audiometria({
       // Chama a biblioteca para desenhar e empacotar como BLOB nativo
       const pdfBlob = await pdf(doc).toBlob();
 
-      // [NOVO] Mostra o PDF no modal gerado pelo React-PDF
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-      setPdfPreviewUrl(pdfUrl);
+      // [NOVO] Mostra o PDF no modal gerado pelo React-PDF (removido a pedido do usuário)
+      // const pdfUrl = URL.createObjectURL(pdfBlob);
+      // setPdfPreviewUrl(pdfUrl);
 
       console.log("[DEBUG] Iniciando upload para o Supabase...");
       // 2. Upload para o Supabase Storage (bucket: audiometria)

@@ -439,6 +439,17 @@ export const AudiometriaPDFTemplate = ({
               )}
             </View>
 
+            {/* Bloco de pergunta Nova: Infecção no ouvido */}
+            <View style={S.blocoPergunta}>
+              <View style={S.qLinha}>
+                <Text style={S.anamneseLabel}>Já teve infecção no ouvido?</Text>
+                <View style={S.qChecks}>
+                  <OpcaoAnamnese marcado={anamneseAnswers?.infeccao_ouvido === 'sim'} texto="Sim" />
+                  <OpcaoAnamnese marcado={anamneseAnswers?.infeccao_ouvido === 'nao'} texto="Não" />
+                </View>
+              </View>
+            </View>
+
             {/* Bloco de pergunta principal Q9 */}
             <View style={S.blocoPergunta}>
               {/* Q9: Trauma no ouvido */}

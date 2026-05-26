@@ -488,7 +488,22 @@ export const GradeAudiometria = forwardRef<GradeAudiometriaRef, GradeAudiometria
   return (
     <>
       {/* Cabeçalho da Grade contendo o título e a barra de ferramentas de desenho */}
-      <div className="flex flex-col items-center mb-4 gap-5">
+      <div className="relative flex flex-col items-center mb-4 gap-5 w-full">
+        {/* Botão de Limpeza Completa posicionado no canto superior esquerdo */}
+        <div className="absolute left-0 top-0">
+          <button
+            onClick={() => {
+              if (window.confirm("Tem certeza que deseja apagar todos os pontos da audiometria?")) {
+                clearCanvas();
+              }
+            }}
+            className="flex items-center justify-center w-[40px] h-[40px] bg-transparent border-none text-gray-600 hover:text-red-500 active:scale-95 transition-all border border-red-200"
+            title="Apagar Tudo"
+          >
+            <Trash2 className="w-[18px] h-[18px]" />
+          </button>
+        </div>
+
         <div className="flex items-center text-blue-600 font-semibold">
           <Activity className="w-[26px] h-[26px] mr-3" />
           <span className="uppercase tracking-widest text-[18px] items-center flex">
@@ -580,14 +595,6 @@ export const GradeAudiometria = forwardRef<GradeAudiometriaRef, GradeAudiometria
           title="Borracha"
         >
           <Eraser className="w-[20px] h-[20px]" />
-        </button>
-
-        {/* Botão de Limpeza Completa */}
-        <button
-          onClick={clearCanvas}
-          className="flex items-center justify-center w-[46px] h-[46px] rounded-md bg-red-50 text-red-600 hover:bg-red-100 active:scale-95 transition-all border border-red-200"
-        >
-          <Trash2 className="w-[20px] h-[20px]" />
         </button>
       </div>
 
