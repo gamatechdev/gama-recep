@@ -877,7 +877,7 @@ export const AudiometriaPDFTemplate = ({
              <View style={{alignItems: 'center', width: '40%'}}>
                 <Image src={sigImage} style={{width: 80, height: 30, marginBottom: -15}} />
                 <View style={{borderTopWidth: 1, borderTopColor: PRETO, width: '100%', marginTop: 20, paddingTop: 5, alignItems: 'center'}}>
-                  <Text style={{fontSize: 8, fontFamily: 'Helvetica-Bold'}}>ASSINATURA DO FONOAUDIÓLOGO(A)</Text>
+                  <Text style={{fontSize: 8, fontFamily: 'Helvetica-Bold'}}>ASSINATURA DA FONOAUDIÓLOGA</Text>
                 </View>
              </View>
           </View>

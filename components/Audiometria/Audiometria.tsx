@@ -1663,7 +1663,7 @@ export function Audiometria({
             />
             <div className="w-full max-w-[250px] border-b border-ios-text mb-2"></div>
             <span className="text-sm text-ios-subtext mb-4 uppercase font-bold text-center">
-              Assinatura do Fonoaudiólogo(a)
+              Assinatura da Fonoaudióloga
             </span>
           </div>
         </div>
