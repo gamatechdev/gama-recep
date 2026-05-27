@@ -5,7 +5,7 @@ import { ClipboardList, User, Activity, Save } from "lucide-react";
 // Importa o tipo Agendamento usado na aplicação
 import { Agendamento } from "../../types";
 import { PatientData } from "./AudiometriaMenu";
-import { ChevronDown, Plus, Minus } from "lucide-react";
+import { ChevronDown, Plus, Minus, TestTube } from "lucide-react";
 import { AudiomPopup } from "./AdiomPopup";
 
 // Define a interface das propriedades recebidas pelo componente
@@ -59,6 +59,68 @@ export function Anamnese({
       message,
       type: "error",
     });
+  };
+
+  // Ref para o botão de salvar, permitindo scroll automático
+  const saveButtonRef = React.useRef<HTMLButtonElement>(null);
+
+  // Efeito para rolar a tela para o topo ao montar o componente
+  React.useEffect(() => {
+    const scrollContainer = document.getElementById('main-scroll-container');
+    if (scrollContainer) {
+      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, []);
+
+  // Efeito que escuta o evento disparado pelo botão na Sidebar
+  React.useEffect(() => {
+    const handleTriggerMock = () => {
+      handleMock();
+    };
+
+    window.addEventListener("triggerMockExame", handleTriggerMock);
+    
+    // Limpeza do listener ao desmontar o componente
+    return () => {
+      window.removeEventListener("triggerMockExame", handleTriggerMock);
+    };
+  }, []); // Dependências vazias para registrar o listener apenas uma vez
+
+  // Função para simular o preenchimento completo e rolar até o botão salvar
+  const handleMock = () => {
+    // Preenche dados obrigatórios do paciente caso estejam vazios
+    if (setPatientData) {
+      setPatientData((prev) => ({
+        ...prev,
+        nome: prev.nome || "Paciente Teste Mock",
+        empresa: prev.empresa || "Empresa Mock",
+        funcao: prev.funcao || "Função Mock",
+        dataExame: prev.dataExame || new Date().toISOString().split("T")[0],
+      }));
+    }
+
+    // Preenche as respostas padrão para passar nas validações
+    setAnswers({
+      q1: "nao",
+      q2: "nao",
+      q3: "nao",
+      q4_nenhum: "sim",
+      q8: "nao",
+      infeccao_ouvido: "nao",
+      q9: "nao",
+      q11_nenhum: "sim",
+      q12_tontura: "nao",
+      q13: "nao",
+      q14: "nao",
+      q15: "nao",
+    });
+
+    // Rola a tela suavemente para o botão Salvar
+    setTimeout(() => {
+      saveButtonRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
   };
 
   // Função de validação e salvamento
@@ -132,6 +194,12 @@ export function Anamnese({
     }
     if (answers.q8 === "sim" && !answers.q8_ear) {
       showError("Questão 8 (Condicional): Você marcou 'Sim'. Por favor, informe em qual ouvido realizou a cirurgia.");
+      return;
+    }
+
+    // Validar nova pergunta sobre infecção
+    if (!answers.infeccao_ouvido) {
+      showError("Por favor, responda se já teve infecção no ouvido.");
       return;
     }
 
@@ -1057,6 +1125,48 @@ export function Anamnese({
                     )}
                   </div>
 
+                  {/* Pergunta Nova: Infecção no ouvido */}
+                  <div className="flex flex-col space-y-4">
+                    <div className="flex flex-col space-y-3">
+                    <span className="text-sm font-bold text-ios-text">
+                      Já teve infecção no ouvido?
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
+                          <input
+                            type="radio"
+                            name="infeccao_ouvido"
+                            value="sim"
+                            checked={answers.infeccao_ouvido === "sim"}
+                            onChange={(e) => handleAnswerChange("infeccao_ouvido", e.target.value)}
+                            className="peer sr-only"
+                          />
+                          <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
+                        </div>
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">Sim</span>
+                      </label>
+
+                      <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
+                        <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
+                          <input
+                            type="radio"
+                            name="infeccao_ouvido"
+                            value="nao"
+                            checked={answers.infeccao_ouvido === "nao"}
+                            onChange={(e) => handleAnswerChange("infeccao_ouvido", e.target.value)}
+                            className="peer sr-only"
+                          />
+                          <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
+                        </div>
+                        <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                        <span className="text-sm font-medium">Não</span>
+                      </label>
+                    </div>
+                    </div>
+                  </div>
+
                   {/* Pergunta 9: Trauma */}
                   <div className="flex flex-col space-y-4">
                     <div className="flex flex-col space-y-3">
@@ -1345,103 +1455,25 @@ export function Anamnese({
                         <span className="text-sm font-medium">não</span>
                       </label>
                     </div>
-
-                    {/* Campo frequência da tontura (exibido apenas se "sim" for selecionado na tela, ou exibido na impressão) */}
-                    <div className={`pl-3    flex-col space-y-2       ${answers.q12_tontura === "sim" ? "flex" : "hidden "} animate-in fade-in slide-in-from-left-2 duration-300 `}>
-                      {answers.q12_tontura === "sim" && (
-                        <div className="pl-3 flex flex-col space-y-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                    {answers.q12_tontura === "sim" && (
+                      <div className="flex flex-col space-y-2">
                           <span className="text-sm text-gray-600">
-                            A cada :
+                            Qual a frequência?
                           </span>
-                          
-                        {/* Container com bordas e flexbox para alinhar os botões de decremento/incremento, input de número e unidade */}
-                        <div className="flex items-center w-full max-w-[250px] border border-gray-300 rounded-xl focus-within:ring-4 focus-within:ring-ios-primary/10 focus-within:border-ios-primary transition-all overflow-hidden shadow-sm">
-                          <button
-                            // Define o botão como tipo button
-                            type="button"
-                            // Ação ao clicar no botão de decrementar a frequência
-                            onClick={() => {
-                              // Obtém o valor numérico da frequência atual no estado ou assume 0 se for vazio/inválido
-                              const valorAtual = parseInt(answers.q12_frequencia_val || "0", 10) || 0;
-                              // Garante que o novo valor não seja inferior a zero
-                              const novoValor = Math.max(0, valorAtual - 1);
-                              // Atualiza o valor numérico da frequência no estado
-                              handleAnswerChange("q12_frequencia_val", String(novoValor));
-                              // Se a unidade de frequência não estiver definida no estado, define como "horas" por padrão
-                              if (!answers.q12_frequencia_unidade) {
-                                // Grava a unidade "horas" no estado
-                                handleAnswerChange("q12_frequencia_unidade", "horas");
+                          <div className="flex-1 min-w-[200px] animate-in fade-in zoom-in-95 duration-200">
+                            <input
+                              type="text"
+                              className="w-[60%] px-4 py-2.5 bg-ios-bg border border-gray-400 rounded-ios focus:outline-none focus:border-ios-primary focus:ring-2 focus:ring-ios-primary/10 transition-all text-sm"
+                              placeholder="Especifique a frequência..."
+                              value={answers.q12_frequencia || ""}
+                              onChange={(e) =>
+                                handleAnswerChange("q12_frequencia", e.target.value)
                               }
-                            }}
-                            // Classes visuais e efeitos do botão de menos
-                            className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-200/50 hover:text-gray-700 active:scale-90 transition-all font-semibold"
-                          >
-                            {/* Ícone de menos */}
-                            <Minus className="w-4 h-4" />
-                          </button>
-                          <input
-                            // Define o input como campo de número
-                            type="number"
-                            // Define o valor mínimo do campo como zero
-                            min={0}
-                            // Atribui o valor do estado ou string vazia para evitar erros
-                            value={answers.q12_frequencia_val || ""}
-                            // Evento disparado quando o usuário edita o campo numérico
-                            onChange={(e) => {
-                              // Atualiza o valor numérico da frequência no estado
-                              handleAnswerChange("q12_frequencia_val", e.target.value);
-                              // Se a unidade de frequência não estiver preenchida no estado, define como "horas"
-                              if (!answers.q12_frequencia_unidade) {
-                                // Grava a unidade "horas" no estado
-                                handleAnswerChange("q12_frequencia_unidade", "horas");
-                              }
-                            }}
-                            // Classes Tailwind CSS para formatação limpa e ocultar setas nativas
-                            className="w-12 text-center bg-transparent border-0 outline-none text-sm text-gray-800 font-bold focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            // Placeholder indicando o valor zero
-                            placeholder="0"
-                          />
-                          <button
-                            // Define como botão normal
-                            type="button"
-                            // Ação ao clicar no botão de incrementar a frequência
-                            onClick={() => {
-                              // Obtém o valor numérico da frequência atual no estado ou assume 0 se for vazio/inválido
-                              const valorAtual = parseInt(answers.q12_frequencia_val || "0", 10) || 0;
-                              // Soma uma unidade ao valor
-                              const novoValor = valorAtual + 1;
-                              // Atualiza o valor numérico da frequência no estado
-                              handleAnswerChange("q12_frequencia_val", String(novoValor));
-                              // Se a unidade de frequência não estiver definida no estado, define como "horas" por padrão
-                              if (!answers.q12_frequencia_unidade) {
-                                // Grava a unidade "horas" no estado
-                                handleAnswerChange("q12_frequencia_unidade", "horas");
-                              }
-                            }}
-                            // Classes visuais e efeitos do botão de mais
-                            className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-200/50 hover:text-gray-700 active:scale-90 transition-all border-r border-gray-300"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
-                          <div className="relative flex items-center pr-0">
-                            <select
-                              value={answers.q12_frequencia_unidade || "horas"}
-                              onChange={(e) => handleAnswerChange("q12_frequencia_unidade", e.target.value)}
-                              className="appearance-none pr-8 pl-3 py-2 bg-transparent border-0 outline-none text-sm text-gray-700 font-semibold cursor-pointer focus:ring-0"
-                            >
-                              <option value="horas">Horas</option>
-                              <option value="dias">Dia(s)</option>
-                              <option value="semanas">Semana(s)</option>
-                        
-                            </select>
-                            <div className="absolute right-2.5 pointer-events-none text-gray-400">
-                              <ChevronDown className="w-4 h-4" />
-                            </div>
+                            />
                           </div>
                         </div>
-                        </div>
-                      )}
-                    </div>
+                    )}
+                   
                     </div>
                   </div>
 
@@ -1758,6 +1790,7 @@ export function Anamnese({
               {/* Botão de Ação Principal: Salvar */}
               <div className="flex justify-center pt-0 pb-0">
                 <button
+                  ref={saveButtonRef}
                   onClick={handleSave}
                   className="group relative flex items-center justify-center space-x-3 bg-ios-primary hover:bg-ios-primary/90 text-white font-bold py-4 px-16 rounded-ios shadow-float hover:shadow-float-lg transition-all transform hover:-translate-y-1 active:scale-95"
                 >

@@ -27,7 +27,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   userProfile,
 }) => {
   return (
-    <aside className="hidden lg:flex w-64 flex-shrink-0 glass-sidebar rounded-ios flex-col py-8 px-4 transition-all duration-500 shadow-glass relative overflow-hidden print:hidden">
+    <aside className="hidden lg:flex w-56 flex-shrink-0 glass-sidebar rounded-ios flex-col py-8 px-4 transition-all duration-500 shadow-glass relative overflow-hidden print:hidden">
       {/* Seção de Logo */}
       <div className="mb-12 flex flex-col items-start px-4 relative z-10">
         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-ios-primary to-ios-secondary flex items-center justify-center shadow-lg shadow-ios-primary/30 mb-3 overflow-hidden">
@@ -145,6 +145,10 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Perfil do Usuário e Logout */}
       <div className="mt-auto pt-6 flex flex-col items-start px-2 gap-4 relative z-10 border-t border-gray-100">
+        
+        {/* Botão MOCK EXAME transferido para a Sidebar e restrito a acesso_med == 5 ou 1 */}
+        
+
         <div className="flex items-center gap-3 w-full bg-white/50 p-2 rounded-2xl border border-white/50 shadow-sm">
           <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden ring-2 ring-white shadow-sm flex-shrink-0">
             <img

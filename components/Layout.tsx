@@ -18,8 +18,14 @@ const Layout: React.FC<LayoutProps> = ({
   onLogout,
   userId,
 }) => {
+  // Define se o atendimento está em tela cheia (ex: na tela de chamada/atendimento)
   const isFullScreen = activeTab === "atendimento";
+  // Define se é a visualização de documento do ASO
   const isDocumentView = activeTab === "aso";
+  // Define se estamos na página de realização de audiometria/anamnese
+  const isAudiometria = activeTab === "audiometriamenu";
+  // Define se o layout deve ocultar a barra lateral (sidebar) e navegações móveis
+  const hideSidebar = isFullScreen || isDocumentView || isAudiometria;
   const [userProfile, setUserProfile] = useState<User | null>(null);
 
   useEffect(() => {
@@ -40,12 +46,16 @@ const Layout: React.FC<LayoutProps> = ({
     }
   };
 
+  // Retorna a estrutura principal do Layout
   return (
+    // Div contêiner principal com classes utilitárias e condicionais de preenchimento
     <div
-      className={`flex h-screen w-full overflow-hidden ${isFullScreen || isDocumentView ? "p-0" : "p-0 lg:p-4 gap-6"} flex-col lg:flex-row print:p-0 print:h-auto print:overflow-visible print:block`}
+      // Aplica p-0 se a sidebar estiver oculta (hideSidebar) ou p-0 lg:p-4 gap-4 caso contrário
+      className={`flex h-screen w-full overflow-hidden ${hideSidebar ? "p-0" : "p-0 lg:p-4 gap-4"} flex-col lg:flex-row print:p-0 print:h-auto print:overflow-visible print:block`}
     >
       {/* --- Mobile Header (Visible only on < lg) --- */}
-      {!isFullScreen && !isDocumentView && (
+      {/* Renderiza o cabeçalho móvel somente se a sidebar não deve ser oculta */}
+      {!hideSidebar && (
         <header className="lg:hidden flex items-center justify-between px-6 py-4 bg-white/80 backdrop-blur-md border-b border-gray-100 z-30 sticky top-0 print:hidden">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-ios-primary to-ios-secondary flex items-center justify-center shadow-md shadow-ios-primary/20 overflow-hidden">
@@ -88,21 +98,32 @@ const Layout: React.FC<LayoutProps> = ({
       )}
 
       {/* --- Desktop Sidebar (Hidden on < lg) --- */}
-      {!isFullScreen && !isDocumentView && (
+      {/* Renderiza o componente Sidebar caso a sidebar não deva ser oculta */}
+      {!hideSidebar && (
+        // Componente Sidebar contendo a navegação do sistema
         <Sidebar 
+          // Repassa a aba ativa
           activeTab={activeTab} 
+          // Repassa o setter da aba ativa
           setActiveTab={setActiveTab} 
+          // Repassa a função de deslogar
           onLogout={onLogout} 
+          // Repassa os dados do perfil do usuário
           userProfile={userProfile} 
         />
       )}
 
       {/* --- Main Content --- */}
+      
       <main
-        className={`flex-1 overflow-hidden relative transition-all duration-500 flex flex-col ${isFullScreen || isDocumentView ? "bg-white" : "bg-ios-bg lg:rounded-ios"}`}
+        // Adiciona bg-white caso a sidebar esteja oculta ou bg-ios-bg lg:rounded-ios caso contrário
+        className={`flex-1 overflow-hidden relative transition-all duration-500 flex flex-col ${hideSidebar ? "bg-white" : "bg-ios-bg lg:rounded-ios"}`}
       >
+       
         <div
-          className={`flex-1 overflow-y-auto custom-scrollbar ${isFullScreen || isDocumentView ? "p-0" : "p-4 pb-24 lg:p-10 lg:pb-10"}`}
+          id="main-scroll-container"
+          // Aplica p-0 se a sidebar estiver oculta ou p-4 pb-24 lg:p-10 lg:pb-10 caso contrário
+          className={`flex-1 overflow-y-auto custom-scrollbar ${hideSidebar ? "p-0" : "p-4 pb-24 lg:p-10 lg:pb-10"}`}
         >
           {/* Back button for FullScreen mode */}
           {isFullScreen && (
@@ -131,7 +152,9 @@ const Layout: React.FC<LayoutProps> = ({
       </main>
 
       {/* --- Mobile Bottom Navigation (Visible only on < lg) --- */}
-      {!isFullScreen && !isDocumentView && (
+      {/* Exibe a barra de navegação inferior móvel apenas se não deve ocultar a sidebar */}
+      {!hideSidebar && (
+        // Barra de navegação inferior com estilo iOS
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 pb-safe pt-2 px-6 flex justify-around items-center z-40 pb-4 print:hidden">
           <button
             onClick={() => setActiveTab("dashboard")}
