@@ -107,7 +107,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ onClose, cur
     });
 
     // Exam Selection State
-    const [selectedExams, setSelectedExams] = useState<string[]>([]);
+    const [selectedExams, setSelectedExams] = useState<string[]>(['Avaliação Clínica']);
     const [examSearchTerm, setExamSearchTerm] = useState('');
 
     const [loading, setLoading] = useState(false);
@@ -235,7 +235,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ onClose, cur
 
     const resetForm = () => {
         setColabFormData({ nome: '', cpf: '', data_nascimento: '', sexo: 'M', setor: '', funcao: '' });
-        setSelectedExams([]);
+        setSelectedExams(['Avaliação Clínica']);
         setSelectedColabId('');
         setColabSearchTerm('');
         // Only clear unit if not locked by initialData
@@ -322,45 +322,8 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ onClose, cur
         setShowConfirmSendModal(true);
     };
 
-    const handleSendMessage = async () => {
-        if (!selectedContact || !savedContext || !currentUser) return;
-
-        setSendingMsg(true);
-
-        const formattedDate = new Date(savedContext.data).toLocaleDateString('pt-BR');
-        const examsListString = savedContext.exames.map((e: string) => `- ${e}`).join('\n');
-
-        const messageBody = `*${currentUser.username}:*\n\nExame Ocupacional do(a) paciente *${savedContext.pacienteName}* está agendado para *${formattedDate}*, *ás 7:00*:\n_Atendimento por ordem de chegada!_\n\n*Exames Solicitados:*\n${examsListString}\n\n*Orientações dos exames ocupacionais:*\n- Levar RG e CPF!\n- Fazer repouso auditivo de 12 horas.\n\n_Endereço da Clínica Gama Center: Rua Barão de Pouso Alegre, 90, São Sebastião, Conselheiro Lafaiete (ao lado da Igreja São Sebastião)._`;
-
-        try {
-            const response = await fetch("https://api.z-api.io/instances/3E8112AFC26DD1A98FF7B2116B9188C4/token/A5112854C9B41DACC9EA5B85/send-text", {
-                method: "POST",
-                headers: {
-                    "Client-Token": "F53f53bad10a9494f92d5e33804220a26S",
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    phone: selectedContact.phone,
-                    message: messageBody
-                })
-            });
-
-            if (response.ok) {
-                toast.success("Notificação enviada com sucesso!");
-            } else {
-                toast.error("Erro ao enviar notificação.");
-            }
-
-        } catch (e) {
-            console.error("API Send Error", e);
-            toast.error("Erro de conexão ao enviar mensagem.");
-        } finally {
-            setSendingMsg(false);
-            setShowConfirmSendModal(false);
-            resetForm();
-            if (onClose) onClose();
-        }
-    };
+   const handleSendMessage = async () => {
+  };
 
     // Filter and Sort contacts for notification
     const filteredContacts = !contactSearchQuery.trim()

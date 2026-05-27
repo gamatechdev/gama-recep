@@ -1,15 +1,15 @@
-
 import React, { useState, useEffect, useRef } from 'react';
+// Importação do Supabase para acesso ao banco de dados
 import { supabase } from '../supabaseClient';
+// Importação de tipos para garantir a integridade dos dados
 import { Colaborador, Unidade, Agendamento } from '../types';
 // Importação de componentes de UI reutilizáveis
 import { Button } from './Button';
-import { SearchableSelect } from './ui/SearchableSelect';
-import { toast } from 'sonner';
-// Importação de ícones do Lucide React para melhorar a UI, incluindo o ícone de copiar
-import { ChevronDown, ImageIcon, Plus, Check, Trash2, Download, X, File, Loader2, Search, Copy } from 'lucide-react';
-// Importa o mapeamento entre exames e formulários do arquivo de configuração
-import { EXAM_TO_FORMULARIO_MAP } from '../constants/formularioMap';
+// Importação de ícones do Lucide React para melhorar a UI
+import { ChevronDown, ImageIcon, Plus, Check, Trash2, Download, X, File } from 'lucide-react';
+// Importação do mapeamento entre exames e formulários de prontuário
+import { EXAM_TO_FORMULARIO_MAP, FORMULARIOS_FIXOS } from '../constants/formularioMap';
+
 const EXAMES_LIST = [
   { "idx": 0, "id": 447, "nome": "Avaliação Clínica" },
   { "idx": 1, "id": 448, "nome": "Audiometria" },
@@ -25,6 +25,7 @@ const EXAMES_LIST = [
   { "idx": 11, "id": 458, "nome": "Glicemia em Jejum" },
   { "idx": 12, "id": 459, "nome": "EPF (parasitológico fezes)" },
   { "idx": 13, "id": 460, "nome": "EAS (urina)" },
+  { "idx": 14, "id": 461, "nome": "Psicometrico" },
   { "idx": 15, "id": 462, "nome": "Gama GT" },
   { "idx": 16, "id": 463, "nome": "TGO / TGP" },
   { "idx": 17, "id": 464, "nome": "Ácido Trans. Muconico" },
@@ -61,20 +62,16 @@ const EXAMES_LIST = [
   { "idx": 48, "id": 495, "nome": "Teste Romberg" },
   { "idx": 49, "id": 496, "nome": "Exame Toxicológico Urina" },
   { "idx": 50, "id": 497, "nome": "Higidez" },
-  { "idx": 51, "id": 498, "nome": "Grupo Sanguíneo" },
-  { "idx": 52, "id": 499, "nome": "Escala de Epworth" }
+  { "idx": 51, "id": 498, "nome": "Grupo Sanguíneo" }
 ];
 
 const FORMULARIOS_OPTIONS = [
   { label: "Ficha Clínica", value: "FICHA_CLINICA" },
+  { label: "Questionário de Epilepsia", value: "QUESTIONARIO_EPILEPSIA" },
   { label: "Prontuário Médico", value: "PRONTUARIO_MEDICO" },
   { label: "Audiometria", value: "AUDIOMETRIA" },
   { label: "Acuidade Visual", value: "ACUIDADE_VISUAL" },
-  { label: "Avaliação Psicossocial", value: "AVALIACAO_PSICOSSOCIAL_SIMPLES" },
-  { label: "Questionário de Epilepsia", value: "QUESTIONARIO_EPILEPSIA" },
-  { label: "Avaliação Vocal", value: "AVALIACAO_VOCAL" },
-  { label: "Teste Romberg", value: "TESTE_ROMBERG" },
-  { label: "Escala de Epworth", value: "EPWORTH" }
+  { label: "Avaliação Psicossocial", value: "AVALIACAO_PSICOSSOCIAL_SIMPLES" }
 ];
 
 interface ChatTag {
@@ -133,12 +130,11 @@ const SearchableInput: React.FC<{
           className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white focus:border-ios-primary focus:ring-4 focus:ring-ios-primary/10 outline-none transition-all text-gray-800"
         />
         <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-          <svg className="h-4 w-4 text-gray-400 group-focus-within:text-ios-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+          {/* Ícone de seta para baixo usando ChevronDown do Lucide */}
+          <ChevronDown className="h-4 w-4 text-gray-400 group-focus-within:text-ios-primary transition-colors" />
         </div>
       </div>
-      {showList && (
+      {showList && value && (
         <div className="absolute z-30 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-float max-h-48 overflow-y-auto custom-scrollbar">
           {filteredOptions.length > 0 ? (
             filteredOptions.map((opt) => (
@@ -158,7 +154,8 @@ const SearchableInput: React.FC<{
                 onClick={() => { setShowList(false); onAddNew(); }}
                 className="w-full text-left px-5 py-3 bg-blue-50 hover:bg-blue-100 transition-colors text-sm text-ios-primary font-bold flex items-center gap-2"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                {/* Ícone de adição usando Plus do Lucide */}
+                <Plus className="w-4 h-4" />
                 {addNewLabel || "+ Cadastrar nova"}
               </button>
             ) : (
@@ -180,70 +177,6 @@ interface AppointmentFormProps {
 
 const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, onCancel }) => {
   const [mode, setMode] = useState<'existing' | 'new'>('existing');
-  // Define o estado para controlar se a data de nascimento foi copiada para exibir feedback visual
-  const [copiedNascimento, setCopiedNascimento] = useState(false);
-  // Define o estado para controlar se a data do atendimento foi copiada para exibir feedback visual
-  const [copiedAtendimento, setCopiedAtendimento] = useState(false);
-
-  // Processa e converte as datas coladas em diversos formatos comuns para o formato ISO yyyy-MM-dd
-  const handlePasteDate = (e: React.ClipboardEvent<HTMLInputElement>, setValue: (val: string) => void) => {
-    // Recupera o valor de texto copiado na área de transferência e limpa espaços adicionais
-    const pastedText = e.clipboardData.getData('text').trim();
-    // Regex para validar formato brasileiro com separadores barra, traço ou ponto (dd/MM/yyyy)
-    const regexBR = /^(\d{2})[/\-.](\d{2})[/\-.](\d{4})$/;
-    // Regex para validar formato brasileiro sem separadores, contendo apenas os 8 dígitos (ddMMyyyy)
-    const regexBRDigits = /^(\d{2})(\d{2})(\d{4})$/;
-    // Regex para validar o formato de data padrão HTML/ISO (yyyy-MM-dd)
-    const regexISO = /^(\d{4})-(\d{2})-(\d{2})$/;
-    // Variável que armazenará a data final convertida
-    let formattedDate = '';
-    // Condição para converter formato brasileiro tradicional com separadores
-    if (regexBR.test(pastedText)) {
-      // Divide e obtém o dia, mês e ano capturados na regex
-      const [, day, month, year] = pastedText.match(regexBR) || [];
-      // Reordena para montar a data no formato esperado pelo input (yyyy-MM-dd)
-      formattedDate = `${year}-${month}-${day}`;
-    // Condição para converter formato brasileiro apenas com dígitos
-    } else if (regexBRDigits.test(pastedText)) {
-      // Divide e obtém o dia, mês e ano capturados a partir dos dígitos sequenciais
-      const [, day, month, year] = pastedText.match(regexBRDigits) || [];
-      // Reordena para montar a data no formato esperado pelo input (yyyy-MM-dd)
-      formattedDate = `${year}-${month}-${day}`;
-    // Condição para caso a data colada já esteja no formato esperado ISO
-    } else if (regexISO.test(pastedText)) {
-      // Atribui diretamente a data de origem por já estar no formato padrão
-      formattedDate = pastedText;
-    }
-    // Verifica se a conversão resultou em uma string de data válida
-    if (formattedDate) {
-      // Evita o comportamento de colagem padrão para que não ocorra dupla inserção ou erro
-      e.preventDefault();
-      // Atualiza o estado da data correspondente usando a função de callback
-      setValue(formattedDate);
-    }
-  };
-
-  // Copia a data convertida no formato BR amigável para a área de transferência do usuário
-  const copyToClipboard = (value: string, setCopiedState: (val: boolean) => void) => {
-    // Interrompe o processo se o campo correspondente não possuir nenhum valor
-    if (!value) return;
-    // Divide o valor do input em partes (ano, mês e dia)
-    const parts = value.split('-');
-    // Reconstrói no padrão brasileiro se estiver completa, caso contrário preserva o valor atual
-    const formatted = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : value;
-    // Tenta gravar o texto formatado na área de transferência do dispositivo do usuário
-    navigator.clipboard.writeText(formatted).then(() => {
-      // Modifica o estado para exibir o feedback visual de sucesso da cópia
-      setCopiedState(true);
-      // Exibe uma notificação do tipo toast avisando ao usuário que a cópia foi realizada
-      toast.success("Data copiada para a área de transferência!");
-      // Agenda para restaurar o estado após 2 segundos, ocultando o feedback visual de sucesso
-      setTimeout(() => setCopiedState(false), 2000);
-    }).catch(() => {
-      // Exibe uma notificação de erro caso ocorra falha na gravação do clipboard
-      toast.error("Erro ao copiar a data.");
-    });
-  };
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
 
@@ -285,17 +218,12 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   // New Appointment Fields
   const [obsAgendamento, setObsAgendamento] = useState('');
   const [prioridade, setPrioridade] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [currentImageUrl, setCurrentImageUrl] = useState<string>('');
-  const [imagePreview, setImagePreview] = useState<string>('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // New Company (Unit) Modal State
   const [showNewCompanyModal, setShowNewCompanyModal] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState('');
   const [clientsList, setClientsList] = useState<OptionItem[]>([]);
   const [selectedClientName, setSelectedClientName] = useState('');
-  const [newCompanyType, setNewCompanyType] = useState<'empresa' | 'unidade'>('unidade');
   const [selectedClientId, setSelectedClientId] = useState<string | number | null>(null);
 
   // Error Modal State
@@ -303,20 +231,26 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   const [errorModalMessage, setErrorModalMessage] = useState('');
 
   // Exam Selection State
-  const [selectedExams, setSelectedExams] = useState<string[]>(['Avaliação Clínica']);
+  const [selectedExams, setSelectedExams] = useState<string[]>([]);
   const [examSearchTerm, setExamSearchTerm] = useState('');
 
   // New Fields: Forms and Observations
-  // Define o estado inicial da lista de formulários selecionados com Ficha Clínica e Prontuário Médico como default
-  const [selectedFormularios, setSelectedFormularios] = useState<string[]>(['FICHA_CLINICA', 'PRONTUARIO_MEDICO']);
+  const [selectedFormularios, setSelectedFormularios] = useState<string[]>(["FICHA_CLINICA"]);
   const [obsClinica, setObsClinica] = useState('');
   const [obsLaboratorial, setObsLaboratorial] = useState('');
-  const [asoQtdCobrar, setAsoQtdCobrar] = useState(0);
-  const [racQtdCobrar, setRacQtdCobrar] = useState(0);
 
-  const [selectedSetorName, setSelectedSetorName] = useState('');
-  const [selectedSetorId, setSelectedSetorId] = useState<number | null>(null);
+  // --- Estados para Anexo de Imagem ---
+  // Armazena o arquivo selecionado para upload
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  // Armazena a URL da imagem existente ou o preview da nova
+  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(null);
+  // Controla a visibilidade do drawer lateral
+  const [showDrawer, setShowDrawer] = useState(false);
+  // Controla a visibilidade do pop-up de preview no hover
+  const [showPreview, setShowPreview] = useState(false);
+
   const [loading, setLoading] = useState(false);
+  const [showCopyToast, setShowCopyToast] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   // --- Notification Workflow States ---
@@ -329,8 +263,71 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   const [selectedContact, setSelectedContact] = useState<ChatTag | null>(null);
   const [sendingMsg, setSendingMsg] = useState(false);
   const [loadingContacts, setLoadingContacts] = useState(false);
-  // Ref para controlar e cancelar requisições de busca anteriores, evitando respostas fora de ordem
   const searchAbortController = useRef<AbortController | null>(null);
+
+  // Unified handling: Input updates state only. Search triggered via Form Submit.
+  useEffect(() => {
+    if (!contactSearchTerm.trim()) {
+      setContactsList([]);
+      if (searchAbortController.current) {
+        searchAbortController.current.abort();
+      }
+    }
+  }, [contactSearchTerm]);
+
+  const handleSearchSubmit = async () => {
+    if (!contactSearchTerm.trim()) return;
+
+    // Abort previous request
+    if (searchAbortController.current) {
+      searchAbortController.current.abort();
+    }
+
+    const controller = new AbortController();
+    searchAbortController.current = controller;
+
+    setLoadingContacts(true);
+    setContactsList([]);
+
+    try {
+      const { data, error } = await supabase
+        .from('chat_tags')
+        .select('*')
+        .ilike('chatname', `%${contactSearchTerm}%`)
+        .abortSignal(controller.signal);
+
+      if (!error && data) {
+        // Deduplicate by phone, keeping the latest updated_at
+        const uniqueContactsMap = new Map();
+
+        data.forEach((contact: any) => {
+          if (!contact.phone) return;
+
+          const existing = uniqueContactsMap.get(contact.phone);
+          if (!existing) {
+            uniqueContactsMap.set(contact.phone, contact);
+          } else {
+            const existingDate = new Date(existing.updated_at || 0);
+            const newDate = new Date(contact.updated_at || 0);
+
+            if (newDate > existingDate) {
+              uniqueContactsMap.set(contact.phone, contact);
+            }
+          }
+        });
+
+        setContactsList(Array.from(uniqueContactsMap.values()) as ChatTag[]);
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error("Search error:", err);
+      }
+    } finally {
+      if (!controller.signal.aborted) {
+        setLoadingContacts(false);
+      }
+    }
+  };
 
   // --- Delete Modal State ---
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -341,17 +338,6 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     fetchInitialData();
     fetchCurrentUser();
   }, []);
-
-  // Limpa a lista de contatos e cancela buscas pendentes quando o termo de pesquisa for apagado
-  useEffect(() => {
-    if (!contactSearchTerm.trim()) {
-      setContactsList([]);
-      // Cancela qualquer requisição de busca que esteja em andamento
-      if (searchAbortController.current) {
-        searchAbortController.current.abort();
-      }
-    }
-  }, [contactSearchTerm]);
 
   useEffect(() => {
     if (initialAppointment) {
@@ -404,16 +390,12 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         setObsAgendamento(initialAppointment.obs_agendamento);
       }
 
-      if ((initialAppointment as any).observacoes_laboratorial) {
-        setObsLaboratorial((initialAppointment as any).observacoes_laboratorial);
-      }
-
       if (initialAppointment.prioridade) {
         setPrioridade(initialAppointment.prioridade);
       }
 
-      if ((initialAppointment as any).foto_obs) {
-        setCurrentImageUrl((initialAppointment as any).foto_obs);
+      if (initialAppointment.foto_obs) {
+        setCurrentImageUrl(initialAppointment.foto_obs);
       }
 
       if ((initialAppointment as any).formularios_snapshot && (initialAppointment as any).formularios_snapshot.length > 0) {
@@ -426,48 +408,36 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           .map((exame: string) => EXAM_TO_FORMULARIO_MAP[exame]) // Busca o formulário correspondente
           .filter(Boolean); // Remove os exames sem mapeamento (undefined)
 
-        // Garante que não haja valores duplicados na lista de formulários derivados
-        setSelectedFormularios([...new Set(formulariosDerived)]);
+        // Garante que os formulários fixos estejam sempre presentes
+        // e que não haja valores duplicados com Set
+        setSelectedFormularios([...new Set([...FORMULARIOS_FIXOS, ...formulariosDerived])]);
       }
 
       if (initialAppointment.valor && initialAppointment.valor > 0) {
         setValorAvulso(initialAppointment.valor.toString());
       }
 
-      // Load obsClinica if present in initialAppointment
-      if ((initialAppointment as any).observacoes) {
+      // Load observations from snapshot (priority) or legacy field
+      if ((initialAppointment as any).observacoes_snapshot) {
+        setObsClinica((initialAppointment as any).observacoes_snapshot.clinica || '');
+        setObsLaboratorial((initialAppointment as any).observacoes_snapshot.laboratorial || '');
+      } else if ((initialAppointment as any).observacoes) {
         setObsClinica((initialAppointment as any).observacoes);
       }
 
-      if (initialAppointment.aso_qtd_cobrar !== undefined) setAsoQtdCobrar(initialAppointment.aso_qtd_cobrar);
-      if (initialAppointment.rac_qtd_cobrar !== undefined) setRacQtdCobrar(initialAppointment.rac_qtd_cobrar);
-
-      if (initialAppointment.prontuario_id) {
-        setSelectedFormularios(initialAppointment.prontuario_id);
-      }
-
-     fetchCollaboratorDetails(
-      initialAppointment.colaborador_id,
-      // Prioriza o cargo/funcao vindo do proprio agendamento, o que também cobre agendamentos externos ("AGENDADO VIA SISTEMA")
-      // Depois tenta puxar do join (cargos?.nome)
-      // Em nenhuma hipótese deve puxar o nome do setor como substituto de cargo
-      (initialAppointment as any).cargo ||
-      (initialAppointment as any).funcao ||
-      (initialAppointment as any).colaboradores?.cargos?.nome ||
-      undefined
-    );
+      fetchCollaboratorDetails(initialAppointment.colaborador_id);
     }
   }, [initialAppointment]);
 
-  const fetchCollaboratorDetails = async (id: string,funcaoOverride?: string) => {
+  const fetchCollaboratorDetails = async (id: string) => {
     const { data, error } = await supabase
       .from('colaboradores')
-      .select(`*, cargos ( nome ), setor_ref:setorid ( nome )`)
+      .select(`*, cargos ( nome )`)
       .eq('id', id)
       .single();
 
     if (data) {
-      handleSelectColab(data as Colaborador,funcaoOverride);
+      handleSelectColab(data as Colaborador);
     }
   };
 
@@ -480,7 +450,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   };
 
   const fetchInitialData = async () => {
-    const { data: colabs } = await supabase.from('colaboradores').select('id, nome, cpf, data_nascimento, sexo, setor, cargo, setorid');
+    const { data: colabs } = await supabase.from('colaboradores').select('id, nome, cpf, data_nascimento, sexo, setor, cargo');
     const { data: units } = await supabase.from('unidades').select('id, nome_unidade');
     const { data: setores } = await supabase.from('setor').select('id, nome');
     const { data: cargos } = await supabase.from('cargos').select('id, nome');
@@ -499,8 +469,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       // Remove o exame da lista de exames selecionados
       setSelectedExams(prev => prev.filter(e => e !== examName));
 
-      // Se houver formulário associado, remove-o também da seleção
-      if (formularioAssociado) {
+      // Se houver formulário associado, remove-o também — a menos que seja fixo
+      if (formularioAssociado && !FORMULARIOS_FIXOS.includes(formularioAssociado)) {
         setSelectedFormularios(prev => prev.filter(f => f !== formularioAssociado));
       }
     } else {
@@ -514,61 +484,26 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     }
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
-    }
-  };
-
-  const removeImage = () => {
-    setImageFile(null);
-    setImagePreview('');
-    setCurrentImageUrl('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  // Define a função que alterna a seleção manual de formulários de prontuário e sincroniza com os exames
   const toggleFormulario = (formValue: string) => {
-    // Busca na constante de mapeamento quais exames resultam neste formulário específico
-    const examesAssociados = Object.keys(EXAM_TO_FORMULARIO_MAP).filter(
-      exam => EXAM_TO_FORMULARIO_MAP[exam] === formValue
-    );
+    // Formulários fixos (ex: Ficha Clínica) não podem ser removidos manualmente
+    if (FORMULARIOS_FIXOS.includes(formValue)) return;
 
-    // Verifica se o formulário correspondente já está na lista dos selecionados
     if (selectedFormularios.includes(formValue)) {
-      // Remove o formulário da seleção caso já estivesse marcado
-      setSelectedFormularios(prev => prev.filter(f => f !== formValue));
-      // Se houver exames associados a esse formulário, remove-os da lista de exames também
-      setSelectedExams(prev => prev.filter(e => !examesAssociados.includes(e)));
+      setSelectedFormularios(selectedFormularios.filter(f => f !== formValue));
     } else {
-      // Insere o formulário na lista dos selecionados caso não estivesse marcado
-      setSelectedFormularios(prev => [...prev, formValue]);
-      // Se houver exames associados a esse formulário, adiciona-os à lista de exames automaticamente
-      setSelectedExams(prev => [...new Set([...prev, ...examesAssociados])]);
+      setSelectedFormularios([...selectedFormularios, formValue]);
     }
   };
 
-  const handleSelectColab = async (colab: any,funcaoOverride?: string) => {
+  const handleSelectColab = (colab: Colaborador) => {
     setSelectedColabId(colab.id);
 
-    // Resolve Setor Name and ID
-    if (colab.setor_ref) {
-      setSelectedSetorName(colab.setor_ref.nome);
-      setSelectedSetorId(colab.setorid);
-    } else if (colab.setorid) {
-      const { data } = await supabase.from('setor').select('nome').eq('id', colab.setorid).maybeSingle();
-      if (data) {
-        setSelectedSetorName(data.nome);
-        setSelectedSetorId(colab.setorid);
-      } else {
-        setSelectedSetorName('');
-        setSelectedSetorId(null);
-      }
-    } else {
-      setSelectedSetorName('');
-      setSelectedSetorId(null);
+    let funcaoText = '';
+    if (colab.cargos && colab.cargos.nome) {
+      funcaoText = colab.cargos.nome;
+    } else if (colab.cargo) {
+      const found = cargosList.find(c => c.id === colab.cargo);
+      if (found) funcaoText = found.label;
     }
 
     setColabFormData({
@@ -577,13 +512,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       data_nascimento: colab.data_nascimento,
       sexo: colab.sexo || 'M',
       setor: colab.setor || '',
-      // Se funcaoOverride for definido, o agendamento veio de um sistema externo (ex: Gama Clientes)
-      // → usa somente o cargo do payload, NUNCA o nome do setor como substituto
-      // Se funcaoOverride for undefined, o agendamento é interno (Gama Recep)
-      // → usa o comportamento original, com fallback para setor caso não haja cargo/funcao
-      funcao: funcaoOverride !== undefined
-        ? funcaoOverride
-        : (colab.cargos?.nome || colab.funcao || colab.setor || colab.setor_ref?.nome || '')
+      funcao: funcaoText
     });
     setColabSearchTerm('');
   };
@@ -612,6 +541,16 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   };
 
   const handleSaveNewUnit = async () => {
+    let finalClientId = selectedClientId;
+
+    // Fallback: Resolve client ID from name (case insensitive) if ID missing
+    if (!finalClientId && selectedClientName.trim()) {
+      const found = clientsList.find(c => c.label.toLowerCase() === selectedClientName.trim().toLowerCase());
+      if (found) {
+        finalClientId = found.id;
+      }
+    }
+
     // 1. Validate if unit name is provided
     if (!newCompanyName.trim()) {
       setErrorModalMessage("Informe o nome da unidade.");
@@ -619,51 +558,34 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       return;
     }
 
+    // 2. Validate if a client was found/selected
+    if (!finalClientId) {
+      setErrorModalMessage("Selecione um cliente (Matriz) para continuar.");
+      setShowErrorModal(true);
+      return;
+    }
+
     setLoading(true);
     try {
-      let finalClientId = selectedClientId;
-
-      // Se for do tipo Empresa, primeiro criamos o registro na tabela clientes
-      if (newCompanyType === 'empresa') {
-        const { data: clientData, error: clientError } = await supabase
-          .from('clientes')
-          .insert({ nome_fantasia: newCompanyName.trim() })
-          .select('id').single();
-
-        if (clientError) throw clientError;
-        finalClientId = clientData.id;
-      } else {
-        // Se for do tipo Unidade, precisamos de um cliente selecionado
-        if (!finalClientId && selectedClientName.trim()) {
-          const found = clientsList.find(c => c.label.toLowerCase() === selectedClientName.trim().toLowerCase());
-          if (found) finalClientId = found.id;
-        }
-
-        if (!finalClientId) {
-          throw new Error("Selecione um cliente (Matriz) para continuar.");
-        }
-      }
-
-      // Agora criamos a unidade vinculada ao cliente (novo ou existente)
       const { data: unitData, error: unitError } = await supabase
         .from('unidades')
-        .insert({ nome_unidade: newCompanyName.trim(), empresaid: finalClientId })
+        .insert({ nome_unidade: newCompanyName, empresaid: finalClientId })
         .select('id, nome_unidade').single();
 
       if (unitError) throw unitError;
 
       if (unitData) {
         setUnidades(prev => [...prev, unitData]);
-        setAppointmentData(prev => ({ ...prev, unidade: unitData.id.toString() }));
+        setAppointmentData({ ...appointmentData, unidade: unitData.id.toString() });
         setUnitSearchTerm(unitData.nome_unidade);
         setShowNewCompanyModal(false);
         setNewCompanyName('');
         setSelectedClientId(null);
         setSelectedClientName('');
-        setMessage({ type: 'success', text: 'Cadastrado com sucesso!' });
+        setMessage({ type: 'success', text: 'Unidade cadastrada!' });
       }
     } catch (err: any) {
-      toast.error(`Erro: ${err.message}`);
+      alert(`Erro: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -671,20 +593,16 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
 
   const clearFields = () => {
     setColabFormData({ nome: '', cpf: '', data_nascimento: '', sexo: 'M', setor: '', funcao: '' });
-    setSelectedExams(['Avaliação Clínica']);
-    // Restaura a lista de formulários selecionados para o padrão (Ficha Clínica e Prontuário)
-    setSelectedFormularios(['FICHA_CLINICA', 'PRONTUARIO_MEDICO']);
+    setSelectedExams([]);
+    setSelectedFormularios(["FICHA_CLINICA"]);
     setObsClinica(''); setObsLaboratorial(''); setSelectedColabId('');
     setColabSearchTerm(''); setUnitSearchTerm('');
     setAppointmentData(prev => ({ ...prev, unidade: '' }));
     setObsAgendamento(''); setPrioridade(false);
-    setImageFile(null); setCurrentImageUrl(''); setImagePreview('');
-    setSelectedSetorName('');
-    setSelectedSetorId(null);
     setIsAvulso(false); setValorAvulso(''); setMetodoPagamento('Pix'); setOutroMetodoPagamento('');
     setSavedContext(null);
-    setAsoQtdCobrar(0);
-    setRacQtdCobrar(0);
+    setImageFile(null);
+    setCurrentImageUrl(null);
   };
 
   const handleCancelAndExit = () => {
@@ -706,11 +624,11 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         .eq('id', initialAppointment.id);
 
       if (error) throw error;
-      if (count === 0) toast.error("Erro ao excluir.");
+      if (count === 0) alert("Erro ao excluir.");
       else if (onCancel) onCancel();
 
     } catch (err: any) {
-      toast.error(`Erro: ${err.message}`);
+      alert(`Erro: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -724,9 +642,6 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   };
 
   const generatePDF = async (payload: any) => {
-    console.log("--- INICIANDO GERAÇÃO DE PDF ---");
-    console.log("Payload:", payload);
-    toast.info("Iniciando geração de PDF na API local...");
     try {
       const response = await fetch("https://ficha-api.vercel.app/prontuarios", {
         method: "POST",
@@ -738,90 +653,19 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       return data.publicUrl || data.url || data.pdf_url || data.link || (typeof data === 'string' && data.startsWith('http') ? data : null);
     } catch (error) {
       console.error("PDF Error:", error);
-      toast.error("Erro ao conectar com a API local (Porta 3002). Verifique se o terminal está rodando.");
       return null;
     }
   };
 
   // --- Notification Logic ---
-  const PAGE_SIZE = 300;
-
-  // Abre o modal de contatos e reseta os estados de busca
   const handleNotifyYes = async () => {
     setShowNotifyModal(false);
     setContactsList([]);
     setContactSearchTerm('');
     setLoadingContacts(false);
-    // Cancela qualquer busca pendente antes de abrir o modal
     if (searchAbortController.current) searchAbortController.current.abort();
     setShowContactListModal(true);
   };
-
-  // Função principal de busca de contatos com suporte a AbortController
-  // Realiza deduplicação mantendo sempre o registro mais recente por telefone
-  const handleSearchSubmit = async () => {
-    if (!contactSearchTerm.trim()) return;
-
-    // Aborta a requisição anterior para evitar respostas fora de ordem
-    if (searchAbortController.current) {
-      searchAbortController.current.abort();
-    }
-
-    // Cria um novo controlador para esta requisição
-    const controller = new AbortController();
-    searchAbortController.current = controller;
-
-    setLoadingContacts(true);
-    setContactsList([]);
-
-    try {
-      // Busca usando ilike (case-insensitive) pelo nome do contato
-      const { data, error } = await supabase
-        .from('chat_tags')
-        .select('*')
-        .ilike('chatname', `%${contactSearchTerm}%`)
-        .abortSignal(controller.signal);
-
-      if (!error && data) {
-        // Deduplica por telefone, mantendo sempre o registro com updated_at mais recente
-        const uniqueContactsMap = new Map();
-
-        data.forEach((contact: any) => {
-          // Ignora contatos sem telefone
-          if (!contact.phone) return;
-
-          const existing = uniqueContactsMap.get(contact.phone);
-          if (!existing) {
-            // Primeiro registro com este telefone: adiciona diretamente
-            uniqueContactsMap.set(contact.phone, contact);
-          } else {
-            // Já existe: compara as datas e mantém o mais recente
-            const existingDate = new Date(existing.updated_at || 0);
-            const newDate = new Date(contact.updated_at || 0);
-            if (newDate > existingDate) {
-              uniqueContactsMap.set(contact.phone, contact);
-            }
-          }
-        });
-
-        // Converte o Map de volta para array e atualiza a lista
-        setContactsList(Array.from(uniqueContactsMap.values()) as ChatTag[]);
-      }
-    } catch (err: any) {
-      // Ignora erros de abort (são intencionais quando uma nova busca é iniciada)
-      if (err.name !== 'AbortError') {
-        console.error("Erro na busca de contatos:", err);
-        toast.error("Erro ao buscar contatos.");
-      }
-    } finally {
-      // Só desativa o loading se esta requisição não foi cancelada
-      if (!controller.signal.aborted) {
-        setLoadingContacts(false);
-      }
-    }
-  };
-
-
 
   const handleNotifyNo = () => {
     setShowNotifyModal(false);
@@ -834,49 +678,44 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     setShowConfirmSendModal(true);
   };
 
-  // Monta e envia a mensagem de agendamento via Z-API (WhatsApp)
   const handleSendMessage = async () => {
     if (!selectedContact || !savedContext || !currentUser) return;
     setSendingMsg(true);
 
-    // Formata a data de YYYY-MM-DD para DD/MM/YYYY
     const formattedDate = savedContext.data.split('-').reverse().join('/');
-    // Monta a lista de exames no formato de bullet points
     const examsListString = savedContext.exames.map((e: string) => `- ${e}`).join('\n');
 
-    // Orientações base — sempre enviadas
+    // Orientações Dinâmicas
     let orientacoes = "- Levar RG e CPF!";
 
-    // Adiciona orientação de repouso auditivo SOMENTE se houver audiometria
-    const needsAudioRepose = savedContext.exames.some((e: string) =>
-      e.toLowerCase().includes("audiometria")
-    );
+    // Verifica se "Audiometria" está na lista
+    const needsAudioRepose = savedContext.exames.some((e: string) => e.toLowerCase().includes("audiometria"));
     if (needsAudioRepose) {
       orientacoes += "\n- Fazer repouso auditivo de 12 horas.";
     }
 
-    // Adiciona orientação de jejum SOMENTE se houver exame de glicemia ou hemoglobina glicada
+    // Verifica se "Hemoglobina glicada" OU "Glicemia" está na lista
+    // Isso cobre "Glicemia em Jejum" e "Hemoglobina glicada"
     const needsFasting = savedContext.exames.some((e: string) => {
       const exam = e.toLowerCase();
       return exam.includes("hemoglobina glicada") || exam.includes("glicemia");
     });
+
     if (needsFasting) {
       orientacoes += "\n- Necessário jejum de 8 horas.";
     }
 
-    // Template da mensagem completa a ser enviada pelo WhatsApp
     const messageBody = `*${currentUser.username}:*\n\nExame Ocupacional do(a) paciente *${savedContext.pacienteName}* está agendado para *${formattedDate}*, *ás 7:00*:\n_Atendimento por ordem de chegada!_\n\n*Exames Solicitados:*\n${examsListString}\n\n*Orientações dos exames ocupacionais:*\n${orientacoes}\n\n_Endereço da Clínica Gama Center: Rua Barão de Pouso Alegre, 90, São Sebastião, Conselheiro Lafaiete (ao lado da Igreja São Sebastião)._`;
 
     try {
-      // Envia a mensagem para o número selecionado via Z-API
       await fetch("https://api.z-api.io/instances/3E8112AFC26DD1A98FF7B2116B9188C4/token/A5112854C9B41DACC9EA5B85/send-text", {
         method: "POST",
         headers: { "Client-Token": "F53f53bad10a9494f92d5e33804220a26S", "Content-Type": "application/json" },
         body: JSON.stringify({ phone: selectedContact.phone, message: messageBody })
       });
-      toast.success("Notificação enviada com sucesso!");
+      alert("Notificação enviada!");
     } catch (e) {
-      toast.error("Erro ao enviar mensagem.");
+      alert("Erro ao enviar mensagem.");
     } finally {
       setSendingMsg(false);
       setShowConfirmSendModal(false);
@@ -902,6 +741,68 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     const { data: newS } = await supabase.from('setor').insert({ nome: normalized }).select().single();
     if (newS) setSetoresList(prev => [...prev, { id: newS.id, label: newS.nome }]);
     return newS?.nome;
+  };
+
+  const handleDateCopy = (value: string) => {
+    if (!value) return;
+    const formatted = value.split('-').reverse().join('/');
+    navigator.clipboard.writeText(formatted).then(() => {
+        setShowCopyToast(true);
+        setTimeout(() => setShowCopyToast(false), 2000);
+    });
+  };
+
+  const handleDatePaste = (e: React.ClipboardEvent<HTMLInputElement>, setter: (val: string) => void) => {
+    const pasteData = e.clipboardData.getData('text').trim();
+    if (!pasteData) return;
+
+    // Remove qualquer separador não numérico para verificar o formato de 8 dígitos (DDMMYYYY ou YYYYMMDD)
+    const numbersOnly = pasteData.replace(/\D/g, '');
+
+    if (numbersOnly.length === 8) {
+      let y, m, d;
+      // No Brasil, DD/MM/YYYY é o padrão. 
+      // Se começar com 19 ou 20 e tiver 8 dígitos, pode ser YYYYMMDD.
+      if (pasteData.length === 8 && (pasteData.startsWith('19') || pasteData.startsWith('20'))) {
+        y = numbersOnly.substring(0, 4);
+        m = numbersOnly.substring(4, 6);
+        d = numbersOnly.substring(6, 8);
+      } else {
+        d = numbersOnly.substring(0, 2);
+        m = numbersOnly.substring(2, 4);
+        y = numbersOnly.substring(4, 8);
+      }
+
+      const isoDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      if (!isNaN(Date.parse(isoDate))) {
+        e.preventDefault();
+        setter(isoDate);
+        return;
+      }
+    }
+
+    // Lida com formatos com separadores como DD/MM/YYYY, YYYY-MM-DD, DD.MM.YYYY, etc.
+    const parts = pasteData.split(/[\/\- \.]/);
+    if (parts.length === 3) {
+      let d, m, y;
+      if (parts[0].length === 4) { // YYYY-MM-DD
+        y = parts[0]; m = parts[1]; d = parts[2];
+      } else if (parts[2].length === 4) { // DD/MM/YYYY
+        d = parts[0]; m = parts[1]; y = parts[2];
+      } else if (parts[2].length === 2) { // DD/MM/YY
+        d = parts[0]; m = parts[1];
+        const yearNum = parseInt(parts[2]);
+        y = yearNum > 30 ? `19${parts[2]}` : `20${parts[2]}`;
+      } else {
+        return;
+      }
+
+      const isoDate = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      if (!isNaN(Date.parse(isoDate))) {
+        e.preventDefault();
+        setter(isoDate);
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -931,28 +832,17 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         if (!finalMetodo.trim()) throw new Error("Informe a forma de pagamento.");
       }
 
-      // Sector logic: if it's a new name (no ID), create it first
-      let finalSetorId = selectedSetorId;
-      if (!finalSetorId && selectedSetorName.trim()) {
-        const { data: existingSetor } = await supabase.from('setor').select('id').ilike('nome', selectedSetorName.trim()).maybeSingle();
-        if (existingSetor) {
-          finalSetorId = existingSetor.id;
-        } else {
-          const { data: newSetor, error: sErr } = await supabase.from('setor').insert({ nome: selectedSetorName.trim() }).select().single();
-          if (sErr) throw sErr;
-          finalSetorId = newSetor.id;
-        }
-      }
+      let cargoId = colabFormData.funcao ? await resolveCargoId(colabFormData.funcao) : null;
+      let setorName = colabFormData.setor ? (await resolveSetor(colabFormData.setor) || colabFormData.setor) : colabFormData.setor;
 
       const colabPayload = {
         nome: colabFormData.nome,
         cpf: colabFormData.cpf,
         data_nascimento: colabFormData.data_nascimento,
         sexo: colabFormData.sexo,
-        setor: colabFormData.funcao, // Salvando o texto da Função na coluna Setor
-        setorid: finalSetorId, // Vinculando ao ID do setor (novo ou existente)
+        setor: setorName,
         unidade: unitId,
-        cargo: null // Não estamos mais usando a tabela auxiliar de cargos
+        cargo: cargoId
       };
 
       if (mode === 'new') {
@@ -970,98 +860,43 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         exam === 'Higidez' ? 'Higidez Mental' : exam
       );
 
-      // Monta o payload que será enviado para a API de geração de PDF
-      const pdfPayloadDebug = {
+      // Usa examsForPdf (lista transformada) para a geração do PDF
+      const combinedObs = [obsClinica, obsLaboratorial].filter(Boolean).join(', ');
+
+      // Verifica se a data de nascimento existe no estado do formulário
+      // Se existir, divide a string YYYY-MM-DD pelo traço, inverte a ordem dos elementos (para DD-MM-YYYY) e junta com barras para gerar o formato DD/MM/YYYY
+      const formattedDataNascimento = colabFormData.data_nascimento ? colabFormData.data_nascimento.split('-').reverse().join('/') : "";
+
+      // Formata a data do exame de YYYY-MM-DD para DD/MM/YYYY
+      const formattedDataExame = appointmentData.data_atendimento ? appointmentData.data_atendimento.split('-').reverse().join('/') : "";
+
+      const pdfPayload = {
         agendamentoId: generateRandomId(23),
         empresa: selectedUnidade?.nome_unidade || "Matriz",
         nome: colabFormData.nome,
-        dataExame: appointmentData.data_atendimento,
-        funcao: colabFormData.funcao || "Não informado",
+        // Envia a data do exame formatada
+        dataExame: formattedDataExame,
+        funcao: colabFormData.funcao || setorName || "Não informado",
         cpf: colabFormData.cpf,
-        dataNascimento: colabFormData.data_nascimento,
+        // Atribui a nova variável que contém a data formatada para ser enviada à API
+        dataNascimento: formattedDataNascimento,
         sexo: colabFormData.sexo,
         tipoExame: appointmentData.tipo,
-        setor: selectedSetorName || "Operacional",
+        setor: setorName || "Operacional",
         tipo_exame: [appointmentData.tipo],
-        exames_requisitados: examsForPdf,
+        exames_requisitados: examsForPdf, // Lista modificada apenas para o PDF
         observacoesClinica: obsClinica,
         observacoesLaboratorial: obsLaboratorial,
+        observacoes: combinedObs || "Nenhuma",
         formularios: selectedFormularios
       };
-      // Log detalhado do payload enviado para a API de geração de PDF (JSON expandido)
-      console.log("\n========== PAYLOAD GERAÇÃO DE PDF ==========");
-      console.log(JSON.stringify(pdfPayloadDebug, null, 2));
-      console.log("=============================================\n");
 
-      // Usa o payload já montado acima para garantir que o log corresponde ao envio real
-      const generatedUrl = await generatePDF(pdfPayloadDebug);
+      // Log para inspeção do payload (conforme solicitado pelo usuário)
+      console.log("Payload enviado para a API de PDF:", JSON.stringify(pdfPayload, null, 2));
 
-      // Usa selectedExams para salvar no banco de dados (Higidez é mantido conforme UI)
+      // Chama a função para gerar o PDF passando o payload formatado
+      const generatedUrl = await generatePDF(pdfPayload);
 
-      // --- MAPEAMENTO AUTOMÁTICO: Exames → Salas ---
-      // Calcula quais salas devem ficar como 'Aguardando' baseado nos exames selecionados.
-      // Se um exame que pertence a determinada sala for removido, a sala fica null (não aplicável).
-      // Se um exame pertencente a uma sala for adicionado, a sala fica 'Aguardando'.
-      // Isso garante que o colaborador apareça na tela de chamada se tiver ao menos 1 sala aplicável.
-      const calcularSalasPorExames = (exames: string[]) => {
-        // Converte todos os exames para lowercase para comparação
-        const lower = exames.map(e => e.toLowerCase());
-
-        // Consultório Médico: Avaliação Clínica, Higidez, Psicossocial, Psicológica, 
-        // Questionário Epilepsia, Aspecto da Pele, Avaliação Vocal
-        const consultorio = lower.some(e =>
-          e.includes('avaliação clínica') || e.includes('avaliacao clinica') ||
-          e.includes('higidez') ||
-          e.includes('psicossocial') || e.includes('psicológica') || e.includes('psicologica') ||
-          e.includes('questionário epilepsia') || e.includes('questionario epilepsia') ||
-          e.includes('aspecto da pele') || e.includes('avaliação vocal') || e.includes('avaliacao vocal')
-        ) ? 'Aguardando' : 'nao aplicavel';
-
-        // Sala de Exames: Acuidade Visual, Espirometria, Eletrocardiograma, Eletroencefalograma,
-        // Teste Palográfico, Teste de Atenção, Teste Romberg
-        const salaexames = lower.some(e =>
-          e.includes('acuidade visual') ||
-          e.includes('espirometria') ||
-          e.includes('eletrocardiograma') ||
-          e.includes('eletroencefalograma') ||
-          e.includes('teste palográfico') || e.includes('teste palografico') ||
-          e.includes('teste de atenção') || e.includes('teste de atencao') ||
-          e.includes('teste romberg')
-        ) ? 'Aguardando' : 'nao aplicavel';
-
-        // Sala de Coleta: Todos os exames de sangue, urina, fezes, toxicológicos
-        const salacoleta = lower.some(e =>
-          e.includes('hemograma') || e.includes('glicemia') ||
-          e.includes('epf') || e.includes('eas') ||
-          e.includes('grupo sanguíneo') || e.includes('grupo sanguineo') ||
-          e.includes('gama gt') || e.includes('tgo') || e.includes('tgp') ||
-          e.includes('ácido') || e.includes('acido') ||
-          e.includes('ala-u') || e.includes('hemoglobina') ||
-          e.includes('coprocultura') || e.includes('colesterol') ||
-          e.includes('chumbo') || e.includes('creatinina') ||
-          e.includes('ferro sérico') || e.includes('ferro serico') ||
-          e.includes('manganês') || e.includes('manganes') ||
-          e.includes('reticulócitos') || e.includes('reticulocitos') ||
-          e.includes('triglicerídeos') || e.includes('triglicerideos') ||
-          e.includes('ige específica') || e.includes('ige especifica') ||
-          e.includes('acetona') ||
-          e.includes('anti hav') || e.includes('anti hbs') || e.includes('anti hbsag') || e.includes('anti hcv') ||
-          e.includes('carboxihemoglobina') ||
-          e.includes('toxicológico') || e.includes('toxicologico')
-        ) ? 'Aguardando' : 'nao aplicavel';
-
-        // Audiometria: apenas o exame de Audiometria
-        const audiometria = lower.some(e =>
-          e.includes('audiometria')
-        ) ? 'Aguardando' : 'nao aplicavel';
-
-        // Raio-X: todos os exames de Raio-X
-        const raiox = lower.some(e =>
-          e.includes('raio-x') || e.includes('raio x')
-        ) ? 'Aguardando' : 'nao aplicavel';
-
-        return { consultorio, salaexames, salacoleta, audiometria, raiox };
-      };
 
       // --- Lógica de Upload de Imagem ---
       let finalFotoObs = currentImageUrl;
@@ -1086,77 +921,38 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         finalFotoObs = publicUrl;
       }
 
-      // Calcula as salas baseado nos exames selecionados
-      const salasCalculadas = calcularSalasPorExames(selectedExams);
+      // Usa selectedExams para salvar no banco de dados (Higidez é mantido conforme UI)
+      const dbPayload: any = {
+        colaborador_id: finalColabId,
+        data_atendimento: appointmentData.data_atendimento,
+        tipo: appointmentData.tipo,
+        unidade: unitId,
+        exames_snapshot: selectedExams,
+        ficha_url: generatedUrl || initialAppointment?.ficha_url,
+        obs_agendamento: obsAgendamento || null,
+        formularios_snapshot: selectedFormularios,
+        prioridade: prioridade,
+        valor: finalValor,
+        metodo_pagamento: finalMetodo,
+        observacoes: [obsClinica, obsLaboratorial].filter(Boolean).join(', ') || null,
+        observacoes_snapshot: { clinica: obsClinica, laboratorial: obsLaboratorial },
+        compareceu: initialAppointment ? initialAppointment.compareceu : false,
+        foto_obs: finalFotoObs // Salva a URL da imagem no banco de dados
+      };
+
+      // REGRA: Se tiver Higidez (nome original), o consultório deve ficar "Aguardando"
+      if (selectedExams.includes('Higidez')) {
+        dbPayload.consultorio = 'Aguardando';
+      }
 
       let agendamentoError;
-
       if (initialAppointment) {
-        // --- EDIÇÃO / REAGENDAMENTO ---
-        // Envia os campos editáveis do formulário + salas recalculadas pelos exames.
-        // NÃO inclui: posicao_tela, sala_chamada, chegou_em, compareceu, status, recepcao
-        // para que esses valores de fila/atendimento sejam preservados.
-        const updatePayload: any = {
-          colaborador_id: finalColabId,
-          data_atendimento: appointmentData.data_atendimento,
-          tipo: appointmentData.tipo,
-          unidade: unitId,
-          exames_snapshot: selectedExams,
-          ficha_url: generatedUrl || initialAppointment.ficha_url,
-          obs_agendamento: obsAgendamento || null,
-          prioridade: prioridade,
-          valor: finalValor || initialAppointment.valor || 0,
-          metodo_pagamento: finalMetodo !== 'medicao' ? finalMetodo : (initialAppointment.metodo_pagamento || 'medicao'),
-          observacoes: obsClinica || null,
-          observacoes_laboratorial: obsLaboratorial || null,
-          aso_qtd_cobrar: asoQtdCobrar,
-          rac_qtd_cobrar: racQtdCobrar,
-          prontuario_id: selectedFormularios,
-          foto_obs: finalFotoObs || null,
-          // Salas recalculadas automaticamente baseado nos exames selecionados
-          ...salasCalculadas,
-        };
-
-        // Log detalhado do payload de atualização do agendamento (JSON expandido)
-        console.log("\n========== PAYLOAD ATUALIZAÇÃO AGENDAMENTO (SUPABASE) ==========");
-        console.log(JSON.stringify(updatePayload, null, 2));
-        console.log("================================================================\n");
-
-        const { error } = await supabase.from('agendamentos').update(updatePayload).eq('id', initialAppointment.id);
+        const { error } = await supabase.from('agendamentos').update(dbPayload).eq('id', initialAppointment.id);
         agendamentoError = error;
       } else {
-        // --- NOVO AGENDAMENTO ---
-        // Inclui todos os campos necessários para a criação
-        const insertPayload: any = {
-          colaborador_id: finalColabId,
-          data_atendimento: appointmentData.data_atendimento,
-          tipo: appointmentData.tipo,
-          unidade: unitId,
-          exames_snapshot: selectedExams,
-          ficha_url: generatedUrl,
-          obs_agendamento: obsAgendamento || null,
-          prioridade: prioridade,
-          valor: finalValor,
-          metodo_pagamento: finalMetodo,
-          observacoes: obsClinica || null,
-          observacoes_laboratorial: obsLaboratorial || null,
-          compareceu: false,
-          status: 'pendente',
-          recepcao: 'Aguardando',
-          aso_qtd_cobrar: asoQtdCobrar,
-          rac_qtd_cobrar: racQtdCobrar,
-          prontuario_id: selectedFormularios,
-          foto_obs: finalFotoObs || null,
-          // Salas calculadas automaticamente baseado nos exames selecionados
-          ...salasCalculadas,
-        };
-
-        // Log detalhado do payload de inserção do novo agendamento (JSON expandido)
-        console.log("\n========== PAYLOAD INSERÇÃO NOVO AGENDAMENTO (SUPABASE) ==========");
-        console.log(JSON.stringify(insertPayload, null, 2));
-        console.log("=================================================================\n");
-
-        const { error } = await supabase.from('agendamentos').insert([insertPayload]);
+        dbPayload.status = 'pendente';
+        dbPayload.recepcao = 'Aguardando';
+        const { error } = await supabase.from('agendamentos').insert([dbPayload]);
         agendamentoError = error;
       }
 
@@ -1167,8 +963,9 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       setSavedContext({
         pacienteName: colabFormData.nome,
         data: appointmentData.data_atendimento,
-        exames: selectedExams, // Enviando lista original (com Higidez) para o WhatsApp
-        obsClinica: obsClinica
+        exames: combinedObs ? [...selectedExams, combinedObs] : selectedExams,
+        phone: "",
+        fichaUrl: generatedUrl
       });
 
       setShowNotifyModal(true);
@@ -1197,18 +994,11 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       .replace(/[^a-z\s]/g, "") // Remove everything except letters and spaces (removes numbers/emojis)
       .trim();
   };
-  // Os contatos exibidos são os mesmos retornados pela busca no backend (já deduplicados)
-  const filteredContacts = contactsList;
 
-  const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-    let formatted = digits;
-    if (digits.length <= 11) {
-      formatted = digits.replace(/^(\d{2})(\d)/g, '($1) $2');
-      formatted = formatted.replace(/(\d{5})(\d)/, '$1-$2');
-    }
-    return formatted.substring(0, 15);
-  };
+  // --- Strict Contact Filtering Logic ---
+
+  // Função para verificar se o arquivo em anexo é um PDF
+  const isPdfFile = imageFile?.type === 'application/pdf' || (currentImageUrl?.toLowerCase().includes('.pdf') ?? false);
 
   return (
     <div className="max-w-5xl mx-auto pb-10 relative">
@@ -1275,69 +1065,31 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
                 <div><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Nome</label><input type="text" required value={colabFormData.nome} onChange={e => setColabFormData({ ...colabFormData, nome: e.target.value })} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" /></div>
                 <div><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">CPF</label><input type="text" required value={colabFormData.cpf} onChange={e => setColabFormData({ ...colabFormData, cpf: e.target.value })} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" /></div>
                 <div>
-                  {/* Rótulo descritivo do campo de data de nascimento */}
                   <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Nascimento</label>
-                  {/* Container posicionado de forma relativa para acomodar o botão de cópia dentro do input */}
-                  <div className="relative flex items-center">
-                    {/* Input do tipo data para data de nascimento */}
-                    <input
-                      type="date"
-                      required
-                      value={colabFormData.data_nascimento}
-                      // Atualiza a propriedade data_nascimento do formulário ao digitar ou selecionar manualmente
-                      onChange={e => setColabFormData({ ...colabFormData, data_nascimento: e.target.value })}
-                      // Intercepta o evento de colagem do teclado ou mouse para formatar a data corretamente
-                      onPaste={(e) => handlePasteDate(e, (val) => setColabFormData({ ...colabFormData, data_nascimento: val }))}
-                      // Classe css para espaçamento correto, incluindo padding extra à direita para o botão
-                      className="w-full h-12 pl-4 pr-12 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none transition-all text-gray-800"
+                  <div className="relative group">
+                    <input 
+                      type="date" required value={colabFormData.data_nascimento} 
+                      onPaste={e => handleDatePaste(e, (val) => setColabFormData({ ...colabFormData, data_nascimento: val }))} 
+                      onChange={e => setColabFormData({ ...colabFormData, data_nascimento: e.target.value })} 
+                      className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" 
                     />
-                    {/* Renderiza o botão apenas se houver uma data de nascimento válida preenchida */}
                     {colabFormData.data_nascimento && (
-                      <button
+                      <button 
                         type="button"
-                        // Executa a cópia da data para a área de transferência ao clicar
-                        onClick={() => copyToClipboard(colabFormData.data_nascimento, setCopiedNascimento)}
-                        // Alinha o botão absolutamente na lateral direita interna do container
-                        className="absolute right-3 p-1.5 rounded-lg text-gray-400 hover:text-ios-primary hover:bg-gray-100 transition-colors"
+                        onClick={() => handleDateCopy(colabFormData.data_nascimento)}
+                        className="absolute right-10 top-1/2 -translate-y-1/2  text-gray-400 hover:text-ios-primary transition-colors opacity-80 group-hover:opacity-100 bg-white/80 rounded-lg flex items-center justify-center"
                         title="Copiar data"
                       >
-                        {/* Exibe o ícone correspondente ao status da cópia (Check ou Copy) */}
-                        {copiedNascimento ? (
-                          // Ícone de check de sucesso na cor verde
-                          <Check size={16} className="text-green-500" />
-                        ) : (
-                          // Ícone de copiar padrão
-                          <Copy size={16} />
-                        )}
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 5.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h6a2 2 0 002-2v-2" />
+                        </svg>
                       </button>
                     )}
                   </div>
                 </div>
                 <div><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Sexo</label><select required value={colabFormData.sexo} onChange={e => setColabFormData({ ...colabFormData, sexo: e.target.value })} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none"><option value="M">Masculino</option><option value="F">Feminino</option></select></div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Função</label>
-                  <input
-                    type="text"
-                    value={colabFormData.funcao}
-                    onChange={e => setColabFormData({ ...colabFormData, funcao: e.target.value })}
-                    className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none transition-all"
-                    placeholder="Digite a função..."
-                  />
-                </div>
-                <div>
-                  <SearchableSelect
-                    label="Setor"
-                    value={selectedSetorName}
-                    options={setoresList}
-                    placeholder="Pesquisar ou digite setor..."
-                    onSelect={(val) => {
-                      setSelectedSetorName(val);
-                      const found = setoresList.find(s => s.label === val);
-                      setSelectedSetorId(found ? (found.id as number) : null);
-                    }}
-                    addNewLabel="+ Usar como novo Setor"
-                  />
-                </div>
+                <div><SearchableInput label="Setor" value={colabFormData.setor} onChange={(val) => setColabFormData({ ...colabFormData, setor: val })} onSelect={(val) => setColabFormData({ ...colabFormData, setor: val })} options={setoresList} /></div>
+                <div><SearchableInput label="Função" value={colabFormData.funcao} onChange={(val) => setColabFormData({ ...colabFormData, funcao: val })} onSelect={(val) => setColabFormData({ ...colabFormData, funcao: val })} options={cargosList} /></div>
               </div>
             </div>
           )}
@@ -1347,56 +1099,43 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           <div className="space-y-6">
             <h3 className="text-sm uppercase tracking-wider text-ios-subtext font-bold border-b border-gray-100 pb-2">Detalhes</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                {/* Rótulo descritivo do campo de data de atendimento */}
-                <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Data</label>
-                {/* Container posicionado de forma relativa para acomodar o botão de cópia dentro do input */}
-                <div className="relative flex items-center">
-                  {/* Input do tipo data para data de atendimento */}
-                  <input
-                    type="date"
-                    required
-                    value={appointmentData.data_atendimento}
-                    // Atualiza a propriedade data_atendimento do agendamento ao digitar ou selecionar manualmente
-                    onChange={e => setAppointmentData({ ...appointmentData, data_atendimento: e.target.value })}
-                    // Intercepta o evento de colagem do teclado ou mouse para formatar a data corretamente
-                    onPaste={(e) => handlePasteDate(e, (val) => setAppointmentData({ ...appointmentData, data_atendimento: val }))}
-                    // Classe css para espaçamento correto, incluindo padding extra à direita para o botão
-                    className="w-full h-12 pl-4 pr-12 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none transition-all text-gray-800"
-                  />
-                  {/* Renderiza o botão apenas se houver uma data de atendimento válida preenchida */}
-                  {appointmentData.data_atendimento && (
-                    <button
-                      type="button"
-                      // Executa a cópia da data para a área de transferência ao clicar
-                      onClick={() => copyToClipboard(appointmentData.data_atendimento, setCopiedAtendimento)}
-                      // Alinha o botão absolutamente na lateral direita interna do container
-                      className="absolute right-3 p-1.5 rounded-lg text-gray-400 hover:text-ios-primary hover:bg-gray-100 transition-colors"
-                      title="Copiar data"
-                    >
-                      {/* Exibe o ícone correspondente ao status da cópia (Check ou Copy) */}
-                      {copiedAtendimento ? (
-                        // Ícone de check de sucesso na cor verde
-                        <Check size={16} className="text-green-500" />
-                      ) : (
-                        // Ícone de copiar padrão
-                        <Copy size={16} />
-                      )}
-                    </button>
-                  )}
-                </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Data</label>
+              <div className="relative group">
+                <input  
+                  type="date" required 
+                  value={appointmentData.data_atendimento} 
+                  onPaste={e => handleDatePaste(e, (val) => setAppointmentData({ ...appointmentData, data_atendimento: val }))} 
+                  onChange={e => setAppointmentData({ ...appointmentData, data_atendimento: e.target.value })} 
+                  className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" 
+                />
+                {appointmentData.data_atendimento && (
+                  <button 
+                    type="button"
+                    onClick={() => handleDateCopy(appointmentData.data_atendimento)}
+                    className="absolute right-10 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-ios-primary transition-colors opacity-0 group-hover:opacity-100 bg-white/80 rounded-lg flex items-center justify-center"
+                    title="Copiar data (DD/MM/YYYY)"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 5.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h6a2 2 0 002-2v-2" />
+                    </svg>
+                  </button>
+                )}
               </div>
+            </div>
+
               <div>
                 {!isAvulso ? (
                   <>
-                    <SearchableSelect
+                    <SearchableInput
                       label="Empresa / Unidade"
                       value={unitSearchTerm}
+                      onChange={(val) => { setUnitSearchTerm(val); setAppointmentData(prev => ({ ...prev, unidade: '' })); if (val !== "Prefeitura/ Estado") { setValorAvulso(''); setMetodoPagamento('Pix'); setOutroMetodoPagamento(''); } }}
                       onSelect={handleSelectUnit}
                       options={unitOptions}
                       required={!isAvulso}
-                      onAddNew={async (val) => {
-                        setNewCompanyName(val || "");
+                      onAddNew={async () => {
+                        setNewCompanyName(unitSearchTerm);
                         // Fetch clients for the dropdown
                         const { data } = await supabase.from('clientes').select('id, nome_fantasia').order('nome_fantasia');
                         if (data) {
@@ -1459,41 +1198,81 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
               </div>
               <div><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Tipo</label><select value={appointmentData.tipo} onChange={(e) => setAppointmentData({ ...appointmentData, tipo: e.target.value })} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none"><option value="Admissional">Admissional</option><option value="Demissional">Demissional</option><option value="Periódico">Periódico</option><option value="Retorno">Retorno ao Trabalho</option><option value="Mudança">Mudança de Função</option><option value="Outros">Outros</option></select></div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">ASO's a cobrar</label>
-                <input type="number" min="0" value={asoQtdCobrar} onChange={e => setAsoQtdCobrar(parseInt(e.target.value) || 0)} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">RAC a cobrar</label>
-                <input type="number" min="0" value={racQtdCobrar} onChange={e => setRacQtdCobrar(parseInt(e.target.value) || 0)} className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" />
-              </div>
-            </div>
-            <div className="flex flex-col md:flex-row gap-6">
+            <div className="flex flex-col-3 md:flex-row gap-4  cursor-pointer">
               <div className="w-full">
                 <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Obs. Agendamento</label>
-                <div className="flex items-start gap-2">
-                  <textarea rows={2} value={obsAgendamento} onChange={(e) => setObsAgendamento(e.target.value)} className="w-full p-4 rounded-xl bg-yellow-50 border-transparent focus:bg-white outline-none resize-none" />
-                  <div className="flex flex-col items-center gap-2 mt-1">
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="w-12 h-12 flex-shrink-0 bg-yellow-50 hover:bg-yellow-100 text-yellow-600 rounded-xl flex items-center justify-center transition-colors relative" title="Anexar Imagem">
-                      <ImageIcon size={20} />
-                      {(imagePreview || currentImageUrl) && (
-                        <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full border-2 border-white p-0.5">
-                          <Check size={10} className="text-white" strokeWidth={4} />
+                <div className="flex items-center gap-3">
+                  <textarea 
+                    rows={2} 
+                    value={obsAgendamento} 
+                    onChange={(e) => setObsAgendamento(e.target.value)} 
+                    className="flex-1 p-4 rounded-xl bg-yellow-50 border-transparent focus:bg-white outline-none resize-none transition-all" 
+                    placeholder="Digite as observações..."
+                  />
+                  {/* Botão de Anexo de Imagem Dinâmico - Agora ao lado do campo */}
+                  <div 
+                    className="flex items-center justify-center h-full relative pb-[20px]"
+                    onMouseEnter={() => { if (currentImageUrl || imageFile) setShowPreview(true); }}
+                    onMouseLeave={() => setShowPreview(false)}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (currentImageUrl || imageFile) {
+                          setShowDrawer(true);
+                        } else {
+                          document.getElementById('fileInput')?.click();
+                        }
+                      }}
+                      className={`p-4 rounded-2xl transition-all shadow-sm relative ${ (currentImageUrl || imageFile) ? 'bg-green-500 text-white shadow-green-200' : 'bg-white border border-gray-100 text-blue-500 hover:bg-gray-50'}`}
+                    >
+                      <File className="w-6 h-6" />
+                      { (currentImageUrl || imageFile) && (
+                        <div className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow-sm border border-green-100">
+                          <Check className="w-3 h-3 text-green-600 stroke-[4px]" />
                         </div>
                       )}
                     </button>
-                    <input type="file" ref={fileInputRef} onChange={handleImageChange} accept="image/*" className="hidden" />
+
+                    {/* Pop-up de Preview ao passar o mouse */}
+                    {showPreview && (currentImageUrl || imageFile) && (
+                      <div className="absolute left-[calc(100%+10px)] top-1/2 -translate-y-1/2 z-[110] animate-in fade-in zoom-in duration-200 pointer-events-none">
+                        <div className="bg-white p-2 rounded-2xl shadow-2xl border border-gray-100 overflow-hidden min-w-[150px] max-w-[250px] flex items-center justify-center">
+                          {/* Verifica se é PDF para renderizar ícone em vez de imagem */}
+                          {isPdfFile ? (
+                            <div className="flex flex-col items-center justify-center p-4">
+                              <File className="w-12 h-12 text-red-500 mb-2" />
+                              <span className="text-sm font-bold text-gray-700">Arquivo PDF</span>
+                            </div>
+                          ) : (
+                            <img 
+                              src={imageFile ? URL.createObjectURL(imageFile) : (currentImageUrl || '')} 
+                              alt="Preview" 
+                              className="w-full h-auto rounded-xl object-contain"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-                {(imagePreview || currentImageUrl) && (
-                  <div className="mt-2 relative inline-block">
-                    <img src={imagePreview || currentImageUrl} alt="Anexo" className="h-20 w-20 object-cover rounded-lg border border-gray-200 shadow-sm" />
-                    <button type="button" onClick={removeImage} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 shadow-md">
-                      <X size={12} />
-                    </button>
-                  </div>
-                )}
+                
+                {/* Input de arquivo oculto */}
+                <input 
+                  type="file" 
+                  id="fileInput" 
+                  // Permite a seleção de imagens e arquivos PDF
+                  accept="image/*,application/pdf" 
+                  className="hidden" 
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      const file = e.target.files[0];
+                      setImageFile(file);
+                      // Opcional: já abre o drawer para mostrar o que foi selecionado
+                      setShowDrawer(true);
+                    }
+                  }} 
+                />
               </div>
               <div className="md:w-64"><label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Prioridade</label><div onClick={() => setPrioridade(!prioridade)} className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer ${prioridade ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-transparent'}`}><div className={`w-6 h-6 rounded-md border flex items-center justify-center ${prioridade ? 'bg-red-500 border-red-500' : 'bg-white border-gray-300'}`}>{prioridade && <span className="text-white font-bold">✓</span>}</div><span className="text-sm font-bold text-gray-500">Marcar Prioridade</span></div></div>
             </div>
@@ -1502,13 +1281,11 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           <div className="h-px bg-gray-100 w-full"></div>
 
           <div className="space-y-4">
-            <h3 className="text-sm uppercase tracking-wider text-ios-subtext font-bold">Prontuários</h3>
-
             <div className="flex flex-wrap gap-2">{FORMULARIOS_OPTIONS.map((form) => (<button key={form.value} type="button" onClick={() => toggleFormulario(form.value)} className={`px-4 py-2.5 rounded-xl text-sm font-semibold border ${selectedFormularios.includes(form.value) ? 'bg-ios-secondary text-white border-ios-secondary' : 'bg-white text-gray-600 border-gray-200'}`}>{form.label}</button>))}</div>
           </div>
 
           <div className="space-y-6">
-            <h3 className="text-sm uppercase tracking-wider text-ios-subtext font-bold">Observações</h3>
+            <h3 className="text-sm uppercase tracking-wider text-ios-subtext font-bold">Observações Clínicas</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <textarea rows={3} value={obsClinica} onChange={(e) => setObsClinica(e.target.value)} className="w-full p-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" placeholder="Obs Clínicas" />
               <textarea rows={3} value={obsLaboratorial} onChange={(e) => setObsLaboratorial(e.target.value)} className="w-full p-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" placeholder="Obs Laboratoriais" />
@@ -1524,91 +1301,36 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           </div>
 
           <div className="pt-6 space-y-4">
-            <button
-              type="submit"
-              disabled={loading}
-              className={`w-full h-14 rounded-2xl font-bold text-lg text-white shadow-xl flex items-center justify-center gap-2 transition-all ${loading ? 'bg-gray-300' : 'bg-ios-primary hover:bg-ios-secondary'}`}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  {initialAppointment ? 'Atualizando...' : 'Confirmando...'}
-                </>
-              ) : (
-                initialAppointment ? 'Atualizar Agendamento' : 'Confirmar'
-              )}
-            </button>
+            <button type="submit" disabled={loading} className={`w-full h-14 rounded-2xl font-bold text-lg text-white shadow-xl ${loading ? 'bg-gray-300' : 'bg-ios-primary'}`}>{loading ? '...' : (initialAppointment ? 'Atualizar Agendamento' : 'Confirmar')}</button>
             {initialAppointment && (<button type="button" onClick={handleDeleteRequest} disabled={loading} className="w-full h-14 rounded-2xl font-bold text-lg text-red-500 bg-red-50 border border-red-100">Excluir</button>)}
           </div>
         </form>
       </div>
 
       {showNewCompanyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-white rounded-ios p-8 max-w-md w-full shadow-2xl space-y-6">
-            <div className="flex justify-between items-center border-b border-gray-100 pb-4">
-              <h3 className="text-xl font-bold text-gray-900">Novo Cadastro</h3>
-              <button onClick={() => setShowNewCompanyModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-
-            <div className="flex bg-gray-100 p-1.5 rounded-2xl">
-              <button
-                type="button"
-                onClick={() => setNewCompanyType('empresa')}
-                className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${newCompanyType === 'empresa' ? 'bg-white text-ios-primary shadow-sm' : 'text-gray-500'}`}
-              >
-                Empresa (Matriz)
-              </button>
-              <button
-                type="button"
-                onClick={() => setNewCompanyType('unidade')}
-                className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${newCompanyType === 'unidade' ? 'bg-white text-ios-primary shadow-sm' : 'text-gray-500'}`}
-              >
-                Unidade (Filial)
-              </button>
-            </div>
-
-            <div className="space-y-5">
-              {newCompanyType === 'unidade' && (
-                <div className="animate-in slide-in-from-top-2 duration-300">
-                  <SearchableSelect
-                    label="Selecione a Matriz"
-                    value={selectedClientName}
-                    onSelect={handleSelectClient}
-                    options={clientsList}
-                    placeholder="Pesquisar empresa matriz..."
-                    required
-                    noResultText="Nenhuma empresa encontrada"
-                  />
-                </div>
-              )}
-
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-ios p-6 max-w-md w-full shadow-2xl space-y-4">
+            <h3 className="text-xl font-bold">Nova Unidade</h3>
+            <div className="space-y-4">
+              <SearchableInput
+                label="Cliente / Empresa Matriz"
+                value={selectedClientName}
+                onChange={(val) => { setSelectedClientName(val); setSelectedClientId(null); }}
+                onSelect={handleSelectClient}
+                options={clientsList}
+                placeholder="Pesquisar cliente..."
+                required
+                onAddNew={undefined} // No new client creation here
+                noResultText="Entre em contato com a equipe de T.I"
+              />
               <div>
-                <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1 uppercase tracking-wide">
-                  {newCompanyType === 'empresa' ? "Nome da Empresa" : "Nome da Unidade"}
-                </label>
-                <input
-                  type="text"
-                  value={newCompanyName}
-                  onChange={e => setNewCompanyName(e.target.value)}
-                  className="w-full h-14 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white focus:border-ios-primary focus:ring-4 focus:ring-ios-primary/10 outline-none transition-all text-gray-800 font-medium"
-                  placeholder={newCompanyType === 'empresa' ? "Ex: Coca-Cola, Vale..." : "Ex: Filial Centro, Obra 01..."}
-                />
+                <label className="block text-xs font-bold text-gray-400 mb-1.5 ml-1">Nome da Unidade</label>
+                <input type="text" value={newCompanyName} onChange={e => setNewCompanyName(e.target.value)} className="w-full h-14 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white outline-none" placeholder="Ex: Filial Centro, Obra 01..." />
               </div>
             </div>
-
-            <div className="flex gap-3 pt-4">
-              <button onClick={() => setShowNewCompanyModal(false)} className="flex-1 py-4 font-bold text-gray-500 bg-gray-100 rounded-2xl hover:bg-gray-200 transition-colors">Cancelar</button>
-              <button
-                onClick={handleSaveNewUnit}
-                disabled={loading}
-                className="flex-1 py-4 font-bold text-white bg-ios-primary rounded-2xl shadow-lg shadow-ios-primary/20 hover:bg-ios-secondary transition-all flex items-center justify-center gap-2"
-              >
-                {loading && <Loader2 className="w-5 h-5 animate-spin" />}
-                Salvar
-              </button>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setShowNewCompanyModal(false)} className="flex-1 py-3 font-semibold bg-gray-100 rounded-xl">Cancelar</button>
+              <button onClick={handleSaveNewUnit} className="flex-1 py-3 font-semibold text-white bg-ios-primary rounded-xl">Salvar</button>
             </div>
           </div>
         </div>
@@ -1648,76 +1370,126 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
 
       {showContactListModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-white rounded-ios max-w-md w-full shadow-2xl h-[500px] flex flex-col overflow-hidden">
-            {/* Cabeçalho com campo de busca e botão */}
-            <div className="flex items-center gap-2 p-4 border-b border-gray-100 bg-gray-50/30">
-              <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="text"
-                  autoFocus
-                  placeholder="Pesquisar por nome..."
-                  className="w-full h-12 pl-12 pr-4 rounded-2xl bg-white border border-gray-200 focus:border-ios-primary focus:ring-4 focus:ring-ios-primary/10 outline-none transition-all text-sm font-medium"
-                  value={contactSearchTerm}
-                  onChange={(e) => setContactSearchTerm(e.target.value)}
-                  // Dispara a busca ao pressionar Enter
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSearchSubmit(); }}
-                />
+          <div className="bg-white rounded-ios max-w-md w-full shadow-2xl h-[600px] flex flex-col overflow-hidden border border-gray-100">
+
+            {/* Header */}
+            <div className="p-6 pb-2">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Selecione o Contato</h3>
+                  <p className="text-sm text-gray-500">Pesquise para encontrar o contato</p>
+                </div>
+                <button onClick={() => { setShowContactListModal(false); handleCancelAndExit(); }} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-100">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-              {/* Botão de busca que dispara a pesquisa no backend */}
-              <button
-                type="button"
-                onClick={handleSearchSubmit}
-                disabled={loadingContacts || !contactSearchTerm.trim()}
-                className="h-12 px-4 bg-ios-primary text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-ios-primary/20 hover:bg-ios-secondary transition-all whitespace-nowrap text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+
+              {/* Search Form - Strict Validity */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSearchSubmit();
+                }}
+                className="relative mb-2"
               >
-                {loadingContacts ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search size={16} />}
-                Buscar
-              </button>
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    placeholder="Digite o nome do contato..."
+                    value={contactSearchTerm}
+                    onChange={(e) => setContactSearchTerm(e.target.value)}
+                    className="w-full h-14 pl-5 pr-14 rounded-2xl bg-gray-50 border-2 border-gray-100 focus:border-ios-primary focus:bg-white outline-none transition-all text-gray-800 font-medium placeholder:text-gray-400"
+                    autoFocus
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={!contactSearchTerm.trim() || loadingContacts}
+                    className={`absolute right-2 p-2.5 rounded-xl transition-all duration-200 flex items-center justify-center
+                                    ${!contactSearchTerm.trim() || loadingContacts
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        : 'bg-ios-primary text-white shadow-lg shadow-ios-primary/20 hover:bg-ios-secondary hover:scale-105 active:scale-95'
+                      }
+                                `}
+                    title="Pesquisar"
+                  >
+                    {loadingContacts ? (
+                      <svg className="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mt-2 ml-1">
+                  Pressione <span className="font-bold text-gray-500">Enter</span> ou clique na <span className="font-bold text-gray-500">lupa</span> para buscar
+                </p>
+              </form>
             </div>
 
-            {/* Lista de resultados */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2 bg-gray-50">
-              {loadingContacts ? (
-                <div className="flex flex-col items-center justify-center h-full space-y-3">
-                  <Loader2 className="w-10 h-10 text-ios-primary animate-spin" />
-                  <p className="text-ios-subtext font-medium">Buscando contatos...</p>
-                </div>
-              ) : filteredContacts.length > 0 ? (
-                filteredContacts.map((contact, index) => (
-                  <button
-                    key={`${contact.phone}-${index}`}
-                    onClick={() => handleContactSelect(contact)}
-                    className="w-full p-4 flex items-center gap-4 bg-white hover:bg-ios-primary/5 rounded-xl transition-all border border-gray-100 hover:border-ios-primary/20 text-left"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-500">
-                      {contact.chatname.charAt(0)}
-                    </div>
-                    <div>
-                      <p className="font-bold text-gray-900">{contact.chatname}</p>
-                      <p className="text-xs text-gray-400">{contact.phone}</p>
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <div className="text-center py-10">
-                  {contactSearchTerm.trim() ? (
-                    <p className="text-gray-400">Nenhum contato encontrado para "{contactSearchTerm}".</p>
-                  ) : (
-                    <p className="text-gray-400">Digite um nome acima e clique em Buscar.</p>
-                  )}
+            {/* Results List */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 pt-0 space-y-3 bg-white">
+              {/* Initial State */}
+              {!loadingContacts && contactsList.length === 0 && !contactSearchTerm.trim() && (
+                <div className="flex flex-col items-center justify-center h-full text-gray-400 opacity-60">
+                  <svg className="w-16 h-16 mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  <p className="text-sm">Digite para pesquisar...</p>
                 </div>
               )}
+
+              {/* No Results */}
+              {!loadingContacts && contactsList.length === 0 && contactSearchTerm.trim() && (
+                <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                  <p className="text-sm bg-gray-100 py-2 px-4 rounded-full">Nenhum contato encontrado</p>
+                </div>
+              )}
+
+              {/* Results */}
+              {!loadingContacts && contactsList.map(contact => (
+                <button
+                  key={contact.chatname}
+                  onClick={() => handleContactSelect(contact)}
+                  className="w-full p-4 flex items-center gap-4 bg-gray-50 hover:bg-white hover:shadow-md border border-transparent hover:border-gray-100 rounded-2xl transition-all group text-left"
+                >
+                  <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden flex-shrink-0 border-2 border-white shadow-sm">
+                    {contact.senderphoto ? (
+                      <img src={contact.senderphoto} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-500 font-bold text-lg bg-gray-200">
+                        {contact.chatname.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-gray-900 group-hover:text-ios-primary transition-colors truncate text-base">
+                      {contact.chatname}
+                    </p>
+                    <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      </svg>
+                      <span className="font-mono">{contact.phone}</span>
+                    </div>
+                  </div>
+                  <div className="text-gray-300 group-hover:text-ios-primary transition-colors">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </button>
+              ))}
             </div>
 
-            {/* Rodapé com botão de pular */}
-            <div className="p-4 border-t border-gray-100 text-center">
-              <button
-                onClick={() => { setShowContactListModal(false); handleCancelAndExit(); }}
-                className="text-gray-500 font-bold text-sm"
-              >
-                Pular notificação
-              </button>
+            <div className="p-4 border-t border-gray-100 text-center bg-gray-50">
+              <button onClick={() => { setShowContactListModal(false); handleCancelAndExit(); }} className="text-gray-500 font-bold text-sm hover:text-gray-700">Pular notificação</button>
             </div>
           </div>
         </div>
@@ -1736,8 +1508,6 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         </div>
       )}
 
-
-
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-ios p-6 max-w-sm w-full shadow-2xl border border-red-100 text-center">
@@ -1750,8 +1520,94 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           </div>
         </div>
       )}
+
+      {/* Drawer Lateral para Visualização da Imagem Anexada */}
+      {showDrawer && (currentImageUrl || imageFile) && (
+        <div 
+          className="fixed inset-0 z-[100] flex justify-end animate-in fade-in duration-300"
+        >
+          {/* Fundo escurecido para foco no Drawer */}
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowDrawer(false)} />
+          
+          {/* Painel do Drawer que desliza da direita - Largura aumentada em ~20% (de max-w-md 448px para 540px) */}
+          <div className="relative w-full max-w-[540px] bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-500">
+            {/* Cabeçalho do Drawer */}
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
+              <div>
+                <h3 className="text-xl font-black text-gray-900 tracking-tight">Anexo</h3>
+            
+              </div>
+              <button 
+                onClick={() => setShowDrawer(false)}
+                className="p-2.5 hover:bg-gray-100 rounded-2xl transition-all text-gray-400 hover:text-gray-900 group"
+              >
+                <X className="w-6 h-6 group-hover:scale-110 transition-transform" />
+              </button>
+            </div>
+
+            {/* Conteúdo principal com o anexo - Scroll removido */}
+            <div className="flex-1 p-2 flex flex-col gap-4 h-full">
+              <div className="relative group flex items-center justify-center flex-1 w-full h-full min-h-[60vh]">
+                {/* Condicional para renderizar um iframe se for PDF ou img caso contrário */}
+                {isPdfFile ? (
+                  <iframe 
+                    src={imageFile ? URL.createObjectURL(imageFile) : (currentImageUrl || '')} 
+                    title="PDF Preview"
+                    className="w-full h-full rounded-xl border border-gray-200"
+                  />
+                ) : (
+                  <img 
+                    src={imageFile ? URL.createObjectURL(imageFile) : (currentImageUrl || '')} 
+                    alt="Anexo" 
+                    className="w-full h-auto p-2 object-contain max-h-[70vh] transition-transform duration-500 group-hover:scale-105"
+                  />
+                )}
+              </div>
+
+              {/* Botões de Ação do Drawer - Somente ícones lado a lado */}
+              <div className="flex items-center justify-center gap-4 py-2">
+                {/* Botão de Download */}
+                <button
+                  type="button"
+                  title="Baixar Imagem"
+                  onClick={() => {
+                    const url = imageFile ? URL.createObjectURL(imageFile) : currentImageUrl;
+                    if (url) window.open(url, '_blank');
+                  }}
+                  className="p-4 bg-ios-primary text-white rounded-2xl shadow-lg hover:shadow-ios-primary/40 transition-all active:scale-90"
+                >
+                  <Download className="w-6 h-6" />
+                </button>
+
+                {/* Botão de Exclusão */}
+                <button
+                  type="button"
+                  title="Remover Anexo"
+                  onClick={() => {
+                    if (confirm("Deseja remover este anexo?")) {
+                      setImageFile(null);
+                      setCurrentImageUrl(null);
+                      setShowDrawer(false);
+                    }
+                  }}
+                  className="p-4 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-all active:scale-90"
+                >
+                  <Trash2 className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showCopyToast && (
+        <div className="fixed bottom-8 right-8 bg-gray-900/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl animate-in slide-in-from-bottom-4 flex items-center gap-3 z-[100] border border-white/10">
+          <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+          <span className="text-sm font-bold">Data copiada!</span>
+        </div>
+      )}
     </div>
   );
 };
+
 
 export default AppointmentForm;

@@ -31,6 +31,7 @@ export const EXAM_TO_FORMULARIO_MAP: Record<string, string> = {
   "Escala de Epworth":       "EPWORTH"
 };
 
+
 // Formulários fixos: nunca serão removidos pela sincronização automática,
 // mesmo que nenhum exame correspondente esteja selecionado.
 // Exporta a lista de formulários que são fixos e não mudam com a seleção de exames
