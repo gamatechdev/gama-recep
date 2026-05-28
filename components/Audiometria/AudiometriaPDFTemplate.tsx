@@ -869,7 +869,7 @@ export const AudiometriaPDFTemplate = ({
           {/* Rodapé de Assinaturas (Sem borda inferior para colar no final da moldura externa) */}
           <View style={{flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 20, paddingHorizontal: 10, flex: 1, alignItems: 'flex-end'}}>
              <View style={{alignItems: 'center', width: '40%'}}>
-                {termoData?.employeeSignature && <Image src={termoData.employeeSignature} style={{width: 80, height: 30, marginBottom: -15}} />}
+                {employeeSignature && <Image src={employeeSignature} style={{width: 80, height: 30, marginBottom: -15}} />}
                 <View style={{borderTopWidth: 1, borderTopColor: PRETO, width: '100%', marginTop: 20, paddingTop: 5, alignItems: 'center'}}>
                   <Text style={{fontSize: 8, fontFamily: 'Helvetica-Bold'}}>ASSINATURA DO FUNCIONÁRIO(A)</Text>
                 </View>
