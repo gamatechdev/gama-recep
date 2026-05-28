@@ -76,29 +76,36 @@ export const GradeAudiometria = forwardRef<GradeAudiometriaRef, GradeAudiometria
       const getMergedDataURL = async (canvasRef: React.RefObject<HTMLCanvasElement>) => {
         return new Promise<string>((resolve) => {
           const offscreenCanvas = document.createElement('canvas');
-          offscreenCanvas.width = 750;
-          offscreenCanvas.height = 583;
+          // Reduz a resolução do canvas para otimizar o tamanho e velocidade no mobile (500x390)
+          offscreenCanvas.width = 500;
+          offscreenCanvas.height = 390;
           const ctx = offscreenCanvas.getContext('2d');
           if (!ctx) return resolve('');
+
+          // Preenche o fundo de branco para garantir que o JPEG não apresente fundo preto devido à transparência
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, 500, 390);
 
           // Carrega a imagem de fundo
           const bgImg = new window.Image();
           // Importante não poluir o canvas para exportação
           bgImg.onload = () => {
-            // Desenha o fundo primeiro
-            ctx.drawImage(bgImg, 0, 0, 750, 583);
-            // Desenha os traços interativos por cima
+            // Desenha o fundo primeiro, ajustado para a nova resolução de 500x390
+            ctx.drawImage(bgImg, 0, 0, 500, 390);
+            // Desenha os traços interativos por cima, também dimensionando para a nova resolução
             if (canvasRef.current) {
-              ctx.drawImage(canvasRef.current, 0, 0);
+              ctx.drawImage(canvasRef.current, 0, 0, 500, 390);
             }
-            resolve(offscreenCanvas.toDataURL('image/png', 1.0));
+            // Retorna em formato JPEG com compressão para redução drástica de peso (Solução 1)
+            resolve(offscreenCanvas.toDataURL('image/jpeg', 0.75));
           };
           bgImg.onerror = () => {
-            // Se falhar o carregamento do fundo, retorna os traços com fundo transparente
+            // Se falhar o carregamento do fundo, retorna os traços
             if (canvasRef.current) {
-              ctx.drawImage(canvasRef.current, 0, 0);
+              ctx.drawImage(canvasRef.current, 0, 0, 500, 390);
             }
-            resolve(offscreenCanvas.toDataURL('image/png', 1.0));
+            // Retorna em formato JPEG com compressão para redução drástica de peso (Solução 1)
+            resolve(offscreenCanvas.toDataURL('image/jpeg', 0.75));
           };
           // Fonte da imagem base64 ou URL local contida no import
           bgImg.src = gradeImage;
