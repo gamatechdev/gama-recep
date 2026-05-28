@@ -229,17 +229,12 @@ export function Anamnese({
     }
     // Caso a resposta principal seja "sim", valida as condicionais de frequência da tontura
     if (answers.q12_tontura === "sim") {
-      // Exige o preenchimento do valor numérico da frequência de tontura
-      if (!answers.q12_frequencia_val) {
-        // Exibe erro informando que o valor numérico da frequência é obrigatório
-        showError("Questão 12 (Condicional): Você marcou 'Sim'. Por favor, informe a frequência numérica da tontura.");
+      // Exige o preenchimento da frequência de tontura (em texto)
+      if (!answers.q12_frequencia || !answers.q12_frequencia.trim()) {
+        // Exibe erro informando que o texto da frequência é obrigatório
+        showError("Questão 12 (Condicional): Você marcou 'Sim'. Por favor, especifique a frequência da tontura na caixa de texto.");
         // Interrompe a execução do salvamento
         return;
-      }
-      // Se a unidade de frequência estiver vazia no estado, define o padrão "horas" para consistência dos dados salvos
-      if (!answers.q12_frequencia_unidade) {
-        // Define "horas" como unidade padrão no próprio objeto answers
-        answers.q12_frequencia_unidade = "horas";
       }
     }
 
@@ -1417,11 +1412,6 @@ export function Anamnese({
                             onChange={(e) => {
                               // Atualiza o estado principal da questão q12_tontura para "sim"
                               handleAnswerChange("q12_tontura", e.target.value);
-                              // Caso a unidade de frequência de tontura não exista no estado, inicializa com "horas"
-                              if (!answers.q12_frequencia_unidade) {
-                                // Define a unidade padrão como "horas" no estado
-                                handleAnswerChange("q12_frequencia_unidade", "horas");
-                              }
                             }}
                             // Classe Tailwind CSS para esconder o input nativo de rádio
                             className="peer sr-only"
