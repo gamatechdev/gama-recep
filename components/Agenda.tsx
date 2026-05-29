@@ -22,7 +22,6 @@ const EXAMES_LIST_EXPORT = [
     { "idx": 11, "id": 458, "nome": "Glicemia em Jejum" },
     { "idx": 12, "id": 459, "nome": "EPF (parasitológico fezes)" },
     { "idx": 13, "id": 460, "nome": "EAS (urina)" },
-    { "idx": 14, "id": 461, "nome": "Grupo Sanguíneo + Fator RH" },
     { "idx": 15, "id": 462, "nome": "Gama GT" },
     { "idx": 16, "id": 463, "nome": "TGO / TGP" },
     { "idx": 17, "id": 464, "nome": "Ácido Trans. Muconico" },
@@ -58,8 +57,7 @@ const EXAMES_LIST_EXPORT = [
     { "idx": 47, "id": 494, "nome": "Teste de Atenção" },
     { "idx": 48, "id": 495, "nome": "Teste Romberg" },
     { "idx": 49, "id": 496, "nome": "Exame Toxicológico Urina" },
-    { "idx": 50, "id": 497, "nome": "Higidez" },
-    { "idx": 51, "id": 498, "nome": "Grupo Sanguíneo" }
+    { "idx": 50, "id": 497, "nome": "Higidez" }
 ];
 
 interface AgendaProps {
@@ -130,9 +128,9 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                 .filter(a => a.audiometria === 'Finalizado')
                 .map(a => a.colaborador_id)
                 .filter(Boolean);
-                
+
             if (colaboradorIds.length === 0) return;
-            
+
             // Removemos IDs duplicados
             const uniqueIds = Array.from(new Set(colaboradorIds));
 
@@ -613,9 +611,9 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                 setor: colab.setor || 'Operacional',
                 tipo_exame: [apt.tipo || 'Admissional'],
                 exames_requisitados: examesParaPdf,
-                observacoesClinica: '',
-                observacoesLaboratorial: '',
-                observacoes: '',
+                observacoesClinica: apt.observacoes || '',
+                observacoesLaboratorial: apt.observacoes_laboratorial || '',
+                observacoes: apt.observacoes || '',
                 formularios: formulariosList
             };
 
@@ -1481,8 +1479,8 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                                             }
                                         }}
                                         className={`p-3 rounded-xl transition-all relative border ${audiometriaStatus[apt.colaborador_id]
-                                                ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border-emerald-100'
-                                                : 'text-gray-400 bg-gray-50 hover:bg-gray-100 border-gray-100'
+                                            ? 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border-emerald-100'
+                                            : 'text-gray-400 bg-gray-50 hover:bg-gray-100 border-gray-100'
                                             }`}
 
                                         title={audiometriaStatus[apt.colaborador_id] ? "Baixar Audiometria" : "Audiometria sem PDF no servidor"}
@@ -1505,12 +1503,12 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                                                 )}
                                             </>
                                         )}
-                                    
+
                                     </button>
-                                // Fecha a expressão condicional de renderização da audiometria
+                                    // Fecha a expressão condicional de renderização da audiometria
                                 )}
 
-                                 {/* Botão de Ficha Clínica: Azul (Gerar) ou Roxo (Abrir) dependendo da URL */}
+                                {/* Botão de Ficha Clínica: Azul (Gerar) ou Roxo (Abrir) dependendo da URL */}
                                 {isFichaValida(apt.ficha_url) ? (
                                     // Ficha já gerada corretamente: mostra botão roxo para abrir
                                     <button
@@ -1528,8 +1526,8 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                                         onClick={(e) => { e.stopPropagation(); handleQuickGenerateFicha(apt); }}
                                         disabled={generatingFichaId === apt.id}
                                         className={`p-3 rounded-xl transition-all border ${generatingFichaId === apt.id
-                                                ? 'text-blue-300 bg-blue-50 border-blue-100 cursor-wait'
-                                                : 'text-blue-600 bg-blue-50 hover:bg-blue-100 border-blue-100'
+                                            ? 'text-blue-300 bg-blue-50 border-blue-100 cursor-wait'
+                                            : 'text-blue-600 bg-blue-50 hover:bg-blue-100 border-blue-100'
                                             }`}
                                         title="Gerar Ficha Clínica"
                                     >

@@ -107,6 +107,8 @@ export interface Agendamento {
   aso_qtd_cobrar?: number;
   rac_qtd_cobrar?: number;
   prontuario_id?: string[] | null;
+  observacoes?: string | null;
+  observacoes_laboratorial?: string | null;
 }
 
 export interface Cargo {

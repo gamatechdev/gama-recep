@@ -55,7 +55,6 @@ export const calcularSalasPorExames = (exames: string[]) => {
         e.includes('glicemia') ||
         e.includes('epf') ||
         e.includes('eas') ||
-        e.includes('grupo sanguineo') ||
         e.includes('gama gt') ||
         e.includes('tgo') ||
         e.includes('tgp') ||
