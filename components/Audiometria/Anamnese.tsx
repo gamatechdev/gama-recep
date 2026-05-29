@@ -198,8 +198,12 @@ export function Anamnese({
     }
 
     // Validar nova pergunta sobre infecção
-    if (!answers.infeccao_ouvido) {
+    if (!answers.qinfect) {
       showError("Por favor, responda se já teve infecção no ouvido.");
+      return;
+    }
+    if(answers.qinfect === "sim" && !answers.qinfect_result){
+      showError("Por favor, responda qual ouvido você tem infecção com frequência!");
       return;
     }
 
@@ -1124,17 +1128,17 @@ export function Anamnese({
                   <div className="flex flex-col space-y-4">
                     <div className="flex flex-col space-y-3">
                     <span className="text-sm font-bold text-ios-text">
-                      Já teve infecção no ouvido?
+                      Infecção no ouvido com frequência?
                     </span>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg p-4 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/5 has-[:checked]:text-ios-primary">
                         <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="radio"
-                            name="infeccao_ouvido"
+                            name="qinfect"
                             value="sim"
-                            checked={answers.infeccao_ouvido === "sim"}
-                            onChange={(e) => handleAnswerChange("infeccao_ouvido", e.target.value)}
+                            checked={answers.qinfect === "sim"}
+                            onChange={(e) => handleAnswerChange("qinfect", e.target.value)}
                             className="peer sr-only"
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
@@ -1147,10 +1151,10 @@ export function Anamnese({
                         <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
                           <input
                             type="radio"
-                            name="infeccao_ouvido"
+                            name="qinfect"
                             value="nao"
-                            checked={answers.infeccao_ouvido === "nao"}
-                            onChange={(e) => handleAnswerChange("infeccao_ouvido", e.target.value)}
+                            checked={answers.qinfect === "nao"}
+                            onChange={(e) => handleAnswerChange("qinfect", e.target.value)}
                             className="peer sr-only"
                           />
                           <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
@@ -1160,6 +1164,74 @@ export function Anamnese({
                       </label>
                     </div>
                     </div>
+                    {answers.qinfect === "sim" && (
+                      <div className="pl-3 space-y-3 animate-in fade-in slide-in-from-left-2 duration-300">
+                        <span className="text-sm text-gray-600">
+                          Qual ouvido?
+                        </span>
+                        <div className="flex flex-wrap gap-3">
+                          <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
+                              <input
+                                type="radio"
+                                name="qinfect_result"
+                                value="od"
+                                checked={answers.qinfect_result === "od"}
+                                onChange={(e) =>
+                                  handleAnswerChange("qinfect_result", e.target.value)
+                                }
+                                className="peer sr-only"
+                              />
+                              <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
+                            </div>
+                            <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                            <span className="text-sm font-medium">
+                              OD
+                            </span>
+                          </label>
+
+                          <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
+                              <input
+                                type="radio"
+                                name="qinfect_result"
+                                value="oe"
+                                checked={answers.qinfect_result === "oe"}
+                                onChange={(e) =>
+                                  handleAnswerChange("qinfect_result", e.target.value)
+                                }
+                                className="peer sr-only"
+                              />
+                              <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
+                            </div>
+                            <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                            <span className="text-sm font-medium">
+                              OE
+                            </span>
+                          </label>
+
+                          <label className="group flex items-center space-x-3 cursor-pointer bg-ios-bg/50 p-3 rounded-ios border border-transparent hover:border-ios-primary/30 transition-all has-[:checked]:border-ios-primary has-[:checked]:bg-ios-primary/10 has-[:checked]:text-ios-primary">
+                            <div className="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-gray-400 group-hover:border-ios-primary/30 has-[:checked]:border-ios-primary transition-all bg-white">
+                              <input
+                                type="radio"
+                                name="qinfect_result"
+                                value="ambos"
+                                checked={answers.qinfect_result === "ambos"}
+                                onChange={(e) =>
+                                  handleAnswerChange("qinfect_result", e.target.value)
+                                }
+                                className="peer sr-only"
+                              />
+                              <div className="w-3 h-3 rounded-full bg-ios-primary scale-0 peer-checked:scale-100 transition-transform duration-200"></div>
+                            </div>
+                            <span className="hidden text-black font-mono">(<span className="invisible group-has-[:checked]:visible">X</span>)</span>
+                            <span className="text-sm font-medium">
+                              Ambos
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Pergunta 9: Trauma */}
