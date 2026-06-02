@@ -131,6 +131,7 @@ const SearchableInput: React.FC<{
           placeholder={placeholder}
           className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white focus:border-ios-primary focus:ring-4 focus:ring-ios-primary/10 outline-none transition-all text-gray-800"
         />
+
         <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
           <svg className="h-4 w-4 text-gray-400 group-focus-within:text-ios-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -397,7 +398,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
 
       const cleanForMatch = (text: string) => typeof text === 'string' ? text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z\s]/g, "").trim() : "";
       let finalExamesSnapshot: string[] = [];
-      
+
       if (initialAppointment.exames_snapshot) {
         finalExamesSnapshot = initialAppointment.exames_snapshot.map((examStr: string) => {
           const found = EXAMES_LIST.find(ex => cleanForMatch(ex.nome) === cleanForMatch(examStr));
