@@ -61,7 +61,6 @@ const EXAMES_LIST = [
   { "idx": 48, "id": 495, "nome": "Teste Romberg" },
   { "idx": 49, "id": 496, "nome": "Exame Toxicológico Urina" },
   { "idx": 50, "id": 497, "nome": "Higidez" },
-  { "idx": 51, "id": 498, "nome": "Grupo Sanguíneo" },
   { "idx": 52, "id": 499, "nome": "Escala de Epworth" }
 ];
 
@@ -203,13 +202,13 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       const [, day, month, year] = pastedText.match(regexBR) || [];
       // Reordena para montar a data no formato esperado pelo input (yyyy-MM-dd)
       formattedDate = `${year}-${month}-${day}`;
-    // Condição para converter formato brasileiro apenas com dígitos
+      // Condição para converter formato brasileiro apenas com dígitos
     } else if (regexBRDigits.test(pastedText)) {
       // Divide e obtém o dia, mês e ano capturados a partir dos dígitos sequenciais
       const [, day, month, year] = pastedText.match(regexBRDigits) || [];
       // Reordena para montar a data no formato esperado pelo input (yyyy-MM-dd)
       formattedDate = `${year}-${month}-${day}`;
-    // Condição para caso a data colada já esteja no formato esperado ISO
+      // Condição para caso a data colada já esteja no formato esperado ISO
     } else if (regexISO.test(pastedText)) {
       // Atribui diretamente a data de origem por já estar no formato padrão
       formattedDate = pastedText;
@@ -396,8 +395,15 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           });
       }
 
+      const cleanForMatch = (text: string) => typeof text === 'string' ? text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z\s]/g, "").trim() : "";
+      let finalExamesSnapshot: string[] = [];
+      
       if (initialAppointment.exames_snapshot) {
-        setSelectedExams(initialAppointment.exames_snapshot);
+        finalExamesSnapshot = initialAppointment.exames_snapshot.map((examStr: string) => {
+          const found = EXAMES_LIST.find(ex => cleanForMatch(ex.nome) === cleanForMatch(examStr));
+          return found ? found.nome : examStr;
+        });
+        setSelectedExams(finalExamesSnapshot);
       }
 
       if (initialAppointment.obs_agendamento) {
@@ -419,15 +425,15 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       if ((initialAppointment as any).formularios_snapshot && (initialAppointment as any).formularios_snapshot.length > 0) {
         // Agendamento interno: carrega os formulários salvos normalmente
         setSelectedFormularios((initialAppointment as any).formularios_snapshot);
-      } else if (initialAppointment.exames_snapshot && initialAppointment.exames_snapshot.length > 0) {
+      } else if (finalExamesSnapshot.length > 0) {
         // Agendamento externo (ex: Gama Clientes): deriva os formulários a partir dos exames
         // mapeando cada exame para seu formulário correspondente
-        const formulariosDerived = initialAppointment.exames_snapshot
+        const formulariosDerived = finalExamesSnapshot
           .map((exame: string) => EXAM_TO_FORMULARIO_MAP[exame]) // Busca o formulário correspondente
           .filter(Boolean); // Remove os exames sem mapeamento (undefined)
 
         // Garante que não haja valores duplicados na lista de formulários derivados
-        setSelectedFormularios([...new Set(formulariosDerived)]);
+        setSelectedFormularios([...new Set(formulariosDerived as string[])]);
       }
 
       if (initialAppointment.valor && initialAppointment.valor > 0) {
@@ -446,20 +452,20 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         setSelectedFormularios(initialAppointment.prontuario_id);
       }
 
-     fetchCollaboratorDetails(
-      initialAppointment.colaborador_id,
-      // Prioriza o cargo/funcao vindo do proprio agendamento, o que também cobre agendamentos externos ("AGENDADO VIA SISTEMA")
-      // Depois tenta puxar do join (cargos?.nome)
-      // Em nenhuma hipótese deve puxar o nome do setor como substituto de cargo
-      (initialAppointment as any).cargo ||
-      (initialAppointment as any).funcao ||
-      (initialAppointment as any).colaboradores?.cargos?.nome ||
-      undefined
-    );
+      fetchCollaboratorDetails(
+        initialAppointment.colaborador_id,
+        // Prioriza o cargo/funcao vindo do proprio agendamento, o que também cobre agendamentos externos ("AGENDADO VIA SISTEMA")
+        // Depois tenta puxar do join (cargos?.nome)
+        // Em nenhuma hipótese deve puxar o nome do setor como substituto de cargo
+        (initialAppointment as any).cargo ||
+        (initialAppointment as any).funcao ||
+        (initialAppointment as any).colaboradores?.cargos?.nome ||
+        undefined
+      );
     }
   }, [initialAppointment]);
 
-  const fetchCollaboratorDetails = async (id: string,funcaoOverride?: string) => {
+  const fetchCollaboratorDetails = async (id: string, funcaoOverride?: string) => {
     const { data, error } = await supabase
       .from('colaboradores')
       .select(`*, cargos ( nome ), setor_ref:setorid ( nome )`)
@@ -467,7 +473,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       .single();
 
     if (data) {
-      handleSelectColab(data as Colaborador,funcaoOverride);
+      handleSelectColab(data as Colaborador, funcaoOverride);
     }
   };
 
@@ -550,7 +556,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     }
   };
 
-  const handleSelectColab = async (colab: any,funcaoOverride?: string) => {
+  const handleSelectColab = async (colab: any, funcaoOverride?: string) => {
     setSelectedColabId(colab.id);
 
     // Resolve Setor Name and ID
@@ -865,7 +871,19 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     }
 
     // Template da mensagem completa a ser enviada pelo WhatsApp
-    const messageBody = `*${currentUser.username}:*\n\nExame Ocupacional do(a) paciente *${savedContext.pacienteName}* está agendado para *${formattedDate}*, *ás 7:00*:\n_Atendimento por ordem de chegada!_\n\n*Exames Solicitados:*\n${examsListString}\n\n*Orientações dos exames ocupacionais:*\n${orientacoes}\n\n_Endereço da Clínica Gama Center: Rua Barão de Pouso Alegre, 90, São Sebastião, Conselheiro Lafaiete (ao lado da Igreja São Sebastião)._`;
+    let messageBody = `*${currentUser.username}:*\n\nExame Ocupacional do(a) paciente *${savedContext.pacienteName}* está agendado para *${formattedDate}*, *ás 7:00*:\n_Atendimento por ordem de chegada!_\n\n*Exames Solicitados:*\n${examsListString}\n\n*Orientações dos exames ocupacionais:*\n${orientacoes}`;
+
+    if (savedContext.obsAgendamento) {
+      messageBody += `\n\n*Observações do Agendamento:*\n${savedContext.obsAgendamento}`;
+    }
+    if (savedContext.obsClinica) {
+      messageBody += `\n\n*Observações Clínicas:*\n${savedContext.obsClinica}`;
+    }
+    if (savedContext.obsLaboratorial) {
+      messageBody += `\n\n*Observações Laboratoriais:*\n${savedContext.obsLaboratorial}`;
+    }
+
+    messageBody += `\n\n_Endereço da Clínica Gama Center: Rua Barão de Pouso Alegre, 90, São Sebastião, Conselheiro Lafaiete (ao lado da Igreja São Sebastião)._`;
 
     try {
       // Envia a mensagem para o número selecionado via Z-API
@@ -1033,7 +1051,6 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         const salacoleta = lower.some(e =>
           e.includes('hemograma') || e.includes('glicemia') ||
           e.includes('epf') || e.includes('eas') ||
-          e.includes('grupo sanguíneo') || e.includes('grupo sanguineo') ||
           e.includes('gama gt') || e.includes('tgo') || e.includes('tgp') ||
           e.includes('ácido') || e.includes('acido') ||
           e.includes('ala-u') || e.includes('hemoglobina') ||
@@ -1082,7 +1099,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         const { data: { publicUrl } } = supabase.storage
           .from('documents')
           .getPublicUrl(filePath);
-        
+
         finalFotoObs = publicUrl;
       }
 
@@ -1168,7 +1185,9 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         pacienteName: colabFormData.nome,
         data: appointmentData.data_atendimento,
         exames: selectedExams, // Enviando lista original (com Higidez) para o WhatsApp
-        obsClinica: obsClinica
+        obsClinica: obsClinica,
+        obsLaboratorial: obsLaboratorial,
+        obsAgendamento: obsAgendamento
       });
 
       setShowNotifyModal(true);
