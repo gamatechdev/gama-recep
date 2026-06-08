@@ -61,7 +61,6 @@ const EXAMES_LIST = [
   { "idx": 48, "id": 495, "nome": "Teste Romberg" },
   { "idx": 49, "id": 496, "nome": "Exame Toxicológico Urina" },
   { "idx": 50, "id": 497, "nome": "Higidez" },
-  { "idx": 51, "id": 498, "nome": "Grupo Sanguíneo" },
   { "idx": 52, "id": 499, "nome": "Escala de Epworth" }
 ];
 
@@ -132,6 +131,7 @@ const SearchableInput: React.FC<{
           placeholder={placeholder}
           className="w-full h-12 px-4 rounded-xl bg-gray-50 border-transparent focus:bg-white focus:border-ios-primary focus:ring-4 focus:ring-ios-primary/10 outline-none transition-all text-gray-800"
         />
+
         <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
           <svg className="h-4 w-4 text-gray-400 group-focus-within:text-ios-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -203,13 +203,13 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       const [, day, month, year] = pastedText.match(regexBR) || [];
       // Reordena para montar a data no formato esperado pelo input (yyyy-MM-dd)
       formattedDate = `${year}-${month}-${day}`;
-    // Condição para converter formato brasileiro apenas com dígitos
+      // Condição para converter formato brasileiro apenas com dígitos
     } else if (regexBRDigits.test(pastedText)) {
       // Divide e obtém o dia, mês e ano capturados a partir dos dígitos sequenciais
       const [, day, month, year] = pastedText.match(regexBRDigits) || [];
       // Reordena para montar a data no formato esperado pelo input (yyyy-MM-dd)
       formattedDate = `${year}-${month}-${day}`;
-    // Condição para caso a data colada já esteja no formato esperado ISO
+      // Condição para caso a data colada já esteja no formato esperado ISO
     } else if (regexISO.test(pastedText)) {
       // Atribui diretamente a data de origem por já estar no formato padrão
       formattedDate = pastedText;
@@ -342,16 +342,8 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     fetchCurrentUser();
   }, []);
 
-  // Limpa a lista de contatos e cancela buscas pendentes quando o termo de pesquisa for apagado
-  useEffect(() => {
-    if (!contactSearchTerm.trim()) {
-      setContactsList([]);
-      // Cancela qualquer requisição de busca que esteja em andamento
-      if (searchAbortController.current) {
-        searchAbortController.current.abort();
-      }
-    }
-  }, [contactSearchTerm]);
+  // A limpeza da lista de contatos ao apagar a pesquisa foi removida
+  // para permitir a exibição da lista completa naturalmente.
 
   useEffect(() => {
     if (initialAppointment) {
@@ -396,8 +388,15 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           });
       }
 
+      const cleanForMatch = (text: string) => typeof text === 'string' ? text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z\s]/g, "").trim() : "";
+      let finalExamesSnapshot: string[] = [];
+
       if (initialAppointment.exames_snapshot) {
-        setSelectedExams(initialAppointment.exames_snapshot);
+        finalExamesSnapshot = initialAppointment.exames_snapshot.map((examStr: string) => {
+          const found = EXAMES_LIST.find(ex => cleanForMatch(ex.nome) === cleanForMatch(examStr));
+          return found ? found.nome : examStr;
+        });
+        setSelectedExams(finalExamesSnapshot);
       }
 
       if (initialAppointment.obs_agendamento) {
@@ -419,15 +418,15 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       if ((initialAppointment as any).formularios_snapshot && (initialAppointment as any).formularios_snapshot.length > 0) {
         // Agendamento interno: carrega os formulários salvos normalmente
         setSelectedFormularios((initialAppointment as any).formularios_snapshot);
-      } else if (initialAppointment.exames_snapshot && initialAppointment.exames_snapshot.length > 0) {
+      } else if (finalExamesSnapshot.length > 0) {
         // Agendamento externo (ex: Gama Clientes): deriva os formulários a partir dos exames
         // mapeando cada exame para seu formulário correspondente
-        const formulariosDerived = initialAppointment.exames_snapshot
+        const formulariosDerived = finalExamesSnapshot
           .map((exame: string) => EXAM_TO_FORMULARIO_MAP[exame]) // Busca o formulário correspondente
           .filter(Boolean); // Remove os exames sem mapeamento (undefined)
 
         // Garante que não haja valores duplicados na lista de formulários derivados
-        setSelectedFormularios([...new Set(formulariosDerived)]);
+        setSelectedFormularios([...new Set(formulariosDerived as string[])]);
       }
 
       if (initialAppointment.valor && initialAppointment.valor > 0) {
@@ -446,20 +445,20 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         setSelectedFormularios(initialAppointment.prontuario_id);
       }
 
-     fetchCollaboratorDetails(
-      initialAppointment.colaborador_id,
-      // Prioriza o cargo/funcao vindo do proprio agendamento, o que também cobre agendamentos externos ("AGENDADO VIA SISTEMA")
-      // Depois tenta puxar do join (cargos?.nome)
-      // Em nenhuma hipótese deve puxar o nome do setor como substituto de cargo
-      (initialAppointment as any).cargo ||
-      (initialAppointment as any).funcao ||
-      (initialAppointment as any).colaboradores?.cargos?.nome ||
-      undefined
-    );
+      fetchCollaboratorDetails(
+        initialAppointment.colaborador_id,
+        // Prioriza o cargo/funcao vindo do proprio agendamento, o que também cobre agendamentos externos ("AGENDADO VIA SISTEMA")
+        // Depois tenta puxar do join (cargos?.nome)
+        // Em nenhuma hipótese deve puxar o nome do setor como substituto de cargo
+        (initialAppointment as any).cargo ||
+        (initialAppointment as any).funcao ||
+        (initialAppointment as any).colaboradores?.cargos?.nome ||
+        undefined
+      );
     }
   }, [initialAppointment]);
 
-  const fetchCollaboratorDetails = async (id: string,funcaoOverride?: string) => {
+  const fetchCollaboratorDetails = async (id: string, funcaoOverride?: string) => {
     const { data, error } = await supabase
       .from('colaboradores')
       .select(`*, cargos ( nome ), setor_ref:setorid ( nome )`)
@@ -467,7 +466,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       .single();
 
     if (data) {
-      handleSelectColab(data as Colaborador,funcaoOverride);
+      handleSelectColab(data as Colaborador, funcaoOverride);
     }
   };
 
@@ -550,7 +549,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     }
   };
 
-  const handleSelectColab = async (colab: any,funcaoOverride?: string) => {
+  const handleSelectColab = async (colab: any, funcaoOverride?: string) => {
     setSelectedColabId(colab.id);
 
     // Resolve Setor Name and ID
@@ -755,19 +754,17 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     // Cancela qualquer busca pendente antes de abrir o modal
     if (searchAbortController.current) searchAbortController.current.abort();
     setShowContactListModal(true);
+    // Dispara a busca inicial de todos os contatos ao abrir o modal
+    fetchAllContacts();
   };
 
-  // Função principal de busca de contatos com suporte a AbortController
+  // Função para buscar contatos ao abrir o modal
   // Realiza deduplicação mantendo sempre o registro mais recente por telefone
-  const handleSearchSubmit = async () => {
-    if (!contactSearchTerm.trim()) return;
-
-    // Aborta a requisição anterior para evitar respostas fora de ordem
+  const fetchAllContacts = async () => {
     if (searchAbortController.current) {
       searchAbortController.current.abort();
     }
 
-    // Cria um novo controlador para esta requisição
     const controller = new AbortController();
     searchAbortController.current = controller;
 
@@ -775,46 +772,35 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     setContactsList([]);
 
     try {
-      // Busca usando ilike (case-insensitive) pelo nome do contato
+      // Busca contatos ordenados por atualização mais recente
       const { data, error } = await supabase
         .from('chat_tags')
         .select('*')
-        .ilike('chatname', `%${contactSearchTerm}%`)
+        .order('updated_at', { ascending: false })
+        .limit(2000)
         .abortSignal(controller.signal);
 
       if (!error && data) {
-        // Deduplica por telefone, mantendo sempre o registro com updated_at mais recente
         const uniqueContactsMap = new Map();
 
         data.forEach((contact: any) => {
-          // Ignora contatos sem telefone
           if (!contact.phone) return;
 
-          const existing = uniqueContactsMap.get(contact.phone);
-          if (!existing) {
-            // Primeiro registro com este telefone: adiciona diretamente
+          // Como os dados já vêm ordenados (mais recentes primeiro),
+          // basta salvar o primeiro que aparecer para cada número de telefone
+          if (!uniqueContactsMap.has(contact.phone)) {
             uniqueContactsMap.set(contact.phone, contact);
-          } else {
-            // Já existe: compara as datas e mantém o mais recente
-            const existingDate = new Date(existing.updated_at || 0);
-            const newDate = new Date(contact.updated_at || 0);
-            if (newDate > existingDate) {
-              uniqueContactsMap.set(contact.phone, contact);
-            }
           }
         });
 
-        // Converte o Map de volta para array e atualiza a lista
         setContactsList(Array.from(uniqueContactsMap.values()) as ChatTag[]);
       }
     } catch (err: any) {
-      // Ignora erros de abort (são intencionais quando uma nova busca é iniciada)
       if (err.name !== 'AbortError') {
         console.error("Erro na busca de contatos:", err);
         toast.error("Erro ao buscar contatos.");
       }
     } finally {
-      // Só desativa o loading se esta requisição não foi cancelada
       if (!controller.signal.aborted) {
         setLoadingContacts(false);
       }
@@ -865,7 +851,19 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     }
 
     // Template da mensagem completa a ser enviada pelo WhatsApp
-    const messageBody = `*${currentUser.username}:*\n\nExame Ocupacional do(a) paciente *${savedContext.pacienteName}* está agendado para *${formattedDate}*, *ás 7:00*:\n_Atendimento por ordem de chegada!_\n\n*Exames Solicitados:*\n${examsListString}\n\n*Orientações dos exames ocupacionais:*\n${orientacoes}\n\n_Endereço da Clínica Gama Center: Rua Barão de Pouso Alegre, 90, São Sebastião, Conselheiro Lafaiete (ao lado da Igreja São Sebastião)._`;
+    let messageBody = `*${currentUser.username}:*\n\nExame Ocupacional do(a) paciente *${savedContext.pacienteName}* está agendado para *${formattedDate}*, *ás 7:00*:\n_Atendimento por ordem de chegada!_\n\n*Exames Solicitados:*\n${examsListString}\n\n*Orientações dos exames ocupacionais:*\n${orientacoes}`;
+
+    if (savedContext.obsAgendamento) {
+      messageBody += `\n\n*Observações do Agendamento:*\n${savedContext.obsAgendamento}`;
+    }
+    if (savedContext.obsClinica) {
+      messageBody += `\n\n*Observações Clínicas:*\n${savedContext.obsClinica}`;
+    }
+    if (savedContext.obsLaboratorial) {
+      messageBody += `\n\n*Observações Laboratoriais:*\n${savedContext.obsLaboratorial}`;
+    }
+
+    messageBody += `\n\n_Endereço da Clínica Gama Center: Rua Barão de Pouso Alegre, 90, São Sebastião, Conselheiro Lafaiete (ao lado da Igreja São Sebastião)._`;
 
     try {
       // Envia a mensagem para o número selecionado via Z-API
@@ -1033,7 +1031,6 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         const salacoleta = lower.some(e =>
           e.includes('hemograma') || e.includes('glicemia') ||
           e.includes('epf') || e.includes('eas') ||
-          e.includes('grupo sanguíneo') || e.includes('grupo sanguineo') ||
           e.includes('gama gt') || e.includes('tgo') || e.includes('tgp') ||
           e.includes('ácido') || e.includes('acido') ||
           e.includes('ala-u') || e.includes('hemoglobina') ||
@@ -1082,7 +1079,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         const { data: { publicUrl } } = supabase.storage
           .from('documents')
           .getPublicUrl(filePath);
-        
+
         finalFotoObs = publicUrl;
       }
 
@@ -1168,7 +1165,9 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         pacienteName: colabFormData.nome,
         data: appointmentData.data_atendimento,
         exames: selectedExams, // Enviando lista original (com Higidez) para o WhatsApp
-        obsClinica: obsClinica
+        obsClinica: obsClinica,
+        obsLaboratorial: obsLaboratorial,
+        obsAgendamento: obsAgendamento
       });
 
       setShowNotifyModal(true);
@@ -1197,8 +1196,17 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       .replace(/[^a-z\s]/g, "") // Remove everything except letters and spaces (removes numbers/emojis)
       .trim();
   };
-  // Os contatos exibidos são os mesmos retornados pela busca no backend (já deduplicados)
-  const filteredContacts = contactsList;
+  // Filtro local dinâmico com normalização para ignorar acentos e case
+  const filteredContacts = contactsList.filter(contact => {
+    if (!contactSearchTerm.trim()) return true;
+    
+    const normalizedSearch = contactSearchTerm.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    const normalizedName = (contact.chatname || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const phoneStr = (contact.phone || "").replace(/\D/g, "");
+    const searchDigits = contactSearchTerm.replace(/\D/g, "");
+    
+    return normalizedName.includes(normalizedSearch) || (searchDigits && phoneStr.includes(searchDigits));
+  });
 
   const formatPhone = (value: string) => {
     const digits = value.replace(/\D/g, '');
@@ -1649,31 +1657,19 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       {showContactListModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-white rounded-ios max-w-md w-full shadow-2xl h-[500px] flex flex-col overflow-hidden">
-            {/* Cabeçalho com campo de busca e botão */}
+            {/* Cabeçalho dinâmico com campo de busca */}
             <div className="flex items-center gap-2 p-4 border-b border-gray-100 bg-gray-50/30">
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input
                   type="text"
                   autoFocus
-                  placeholder="Pesquisar por nome..."
+                  placeholder="Pesquisar por nome ou número..."
                   className="w-full h-12 pl-12 pr-4 rounded-2xl bg-white border border-gray-200 focus:border-ios-primary focus:ring-4 focus:ring-ios-primary/10 outline-none transition-all text-sm font-medium"
                   value={contactSearchTerm}
                   onChange={(e) => setContactSearchTerm(e.target.value)}
-                  // Dispara a busca ao pressionar Enter
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSearchSubmit(); }}
                 />
               </div>
-              {/* Botão de busca que dispara a pesquisa no backend */}
-              <button
-                type="button"
-                onClick={handleSearchSubmit}
-                disabled={loadingContacts || !contactSearchTerm.trim()}
-                className="h-12 px-4 bg-ios-primary text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-ios-primary/20 hover:bg-ios-secondary transition-all whitespace-nowrap text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loadingContacts ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search size={16} />}
-                Buscar
-              </button>
             </div>
 
             {/* Lista de resultados */}
@@ -1704,7 +1700,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
                   {contactSearchTerm.trim() ? (
                     <p className="text-gray-400">Nenhum contato encontrado para "{contactSearchTerm}".</p>
                   ) : (
-                    <p className="text-gray-400">Digite um nome acima e clique em Buscar.</p>
+                    <p className="text-gray-400">Nenhum contato disponível.</p>
                   )}
                 </div>
               )}
@@ -1729,7 +1725,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
             <h3 className="text-xl font-bold mb-2">Enviar Confirmação</h3>
             <p className="text-gray-500 mb-6">Para <span className="font-bold text-gray-800">{selectedContact.chatname}</span>?</p>
             <div className="flex gap-3">
-              <button onClick={() => { setShowConfirmSendModal(false); handleCancelAndExit(); }} className="flex-1 py-3 font-semibold bg-gray-100 rounded-xl" disabled={sendingMsg}>Cancelar</button>
+              <button onClick={() => { setShowConfirmSendModal(false); setShowContactListModal(true); }} className="flex-1 py-3 font-semibold bg-gray-100 rounded-xl" disabled={sendingMsg}>Cancelar</button>
               <button onClick={handleSendMessage} className="flex-1 py-3 font-semibold text-white bg-green-500 rounded-xl" disabled={sendingMsg}>{sendingMsg ? '...' : 'Enviar'}</button>
             </div>
           </div>
