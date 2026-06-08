@@ -420,7 +420,11 @@ const CallScreen: React.FC<CallScreenProps> = ({ onOpenAudiometria }) => {
                                   if (isClickable) {
                                     cycleStatus(apt.id, col.key, status, apt.colaboradores?.nome);
                                     if (col.key === 'audiometria' && status === 'Aguardando') {
+
+                                    if (userAccessLevel === 5) {
                                       onOpenAudiometria?.(apt);
+                                    }
+
                                     }
                                   }
                                 }}
