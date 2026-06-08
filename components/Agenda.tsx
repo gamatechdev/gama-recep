@@ -605,7 +605,7 @@ const Agenda: React.FC<AgendaProps> = ({ onNewAppointment, onEditAppointment, on
                 empresa: unidade?.nome_unidade || 'Matriz',
                 nome: colab.nome || 'Não informado',
                 dataExame: apt.data_atendimento,
-                funcao: colab.setor || 'Não informado',
+                funcao: colab.cargos?.nome || colab.cargo || 'Não informado',
                 cpf: colab.cpf || '',
                 dataNascimento: colab.data_nascimento || '',
                 sexo: colab.sexo || 'M',

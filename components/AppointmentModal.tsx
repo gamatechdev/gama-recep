@@ -402,7 +402,7 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ onClose, cur
                 paciente: {
                     nome: colabFormData.nome,
                     cpf: colabFormData.cpf,
-                    funcao: colabFormData.funcao || colabFormData.setor || "Não informado",
+                    funcao: colabFormData.funcao,
                     sexo: colabFormData.sexo,
                     nascimento: `${colabFormData.data_nascimento}`,
                     setor: colabFormData.setor || "Operacional"
