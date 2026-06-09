@@ -38,6 +38,8 @@ interface AudiometriaMenuProps {
   appointment?: Agendamento | null;
   // Função para fechar o menu e voltar à tela anterior
   onClose?: () => void;
+  // Callback opcional para reverter a chamada de audiometria de volta para Aguardando
+  onRevertCall?: () => void;
 }
 
 // Gera a chave única do rascunho no localStorage com base no ID do agendamento
@@ -45,7 +47,7 @@ const getDraftKey = (agendamentoId: number | string) =>
   `gama_audio_draft_${agendamentoId}`;
 
 // Componente de menu principal que gerencia as abas da área de exames audiométricos e anamnese
-export function AudiometriaMenu({ appointment, onClose }: AudiometriaMenuProps) {
+export function AudiometriaMenu({ appointment, onClose, onRevertCall }: AudiometriaMenuProps) {
   // Estado para controlar a aba ativa (anamnese por padrão)
   // Elevado ao menu para que seja persistido no rascunho
   const [activeTab, setActiveTab] = useState<"anamnese" | "audiometria">(
@@ -62,8 +64,8 @@ export function AudiometriaMenu({ appointment, onClose }: AudiometriaMenuProps) 
     rg: "",
     // Inicializa o nome da empresa/unidade
     empresa: appointment?.unidades?.nome_unidade || "",
-    // Inicializa a função/setor do colaborador
-    funcao: appointment?.colaboradores?.setor || "",
+    // Inicializa a função/setor do colaborador com o nome do cargo, ou converte o ID do cargo para string caso não tenha o nome
+    funcao: appointment?.colaboradores?.cargos?.nome || (appointment?.colaboradores?.cargo ? String(appointment?.colaboradores?.cargo) : ""),
     // Inicializa a descrição textual do sexo do colaborador
     sexo:
       appointment?.colaboradores?.sexo === "F"
@@ -420,6 +422,8 @@ export function AudiometriaMenu({ appointment, onClose }: AudiometriaMenuProps) 
             setAnswers={setAnamneseAnswers}
             // Ao salvar a anamnese com sucesso, avança para a aba de audiometria
             onSaveSuccess={() => setActiveTab("audiometria")}
+            // Repassa o callback de reverter chamada recebido pelo menu
+            onRevertCall={onRevertCall}
           />
         </div>
 
