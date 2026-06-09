@@ -3,7 +3,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { Agendamento } from '../types';
 import { toast, Toaster } from 'sonner';
-import { BookAudio, File, FileArchive } from 'lucide-react';
+// Importa o ícone Undo para o botão de reverter chamada
+import { BookAudio, File, FileArchive, Undo } from 'lucide-react';
 
 const ROOM_COLUMNS = [
   { key: 'consultorio', label: 'Consultório Médico' },
@@ -279,6 +280,53 @@ const CallScreen: React.FC<CallScreenProps> = ({ onOpenAudiometria }) => {
     }
   };
 
+  // Função para reverter o status de 'atendido' (Amarelo) de volta para 'Aguardando' (Vermelho)
+  const revertStatus = async (id: number, column: string) => {
+    // Monta o objeto de atualização zerando posição, sala e voltando ao aguardando
+    const updates: any = {
+      [column]: 'Aguardando', // Retorna ao status inicial de espera na fila
+      posicao_tela: null,     // Remove o paciente da posição exibida na TV de chamada
+      sala_chamada: null,     // Limpa o nome da sala associada ao chamado
+    };
+
+    // Optimistic update: reflete a reversão localmente antes da resposta do banco
+    setAppointments(prev =>
+      prev.map(a => (a.id === id ? { ...a, ...updates } : a))
+    );
+
+    // Para o timer do atendimento em andamento imediatamente
+    setActiveCallData(null);
+
+    // Atualiza o status da sala no banco de dados para Aguardando
+    const { error: updateError } = await supabase
+      .from('agendamentos')
+      .update(updates)
+      .eq('id', id);
+
+    if (updateError) {
+      // Em caso de erro, rebusca a fila para garantir consistência com o banco
+      console.error('Erro ao reverter status:', updateError);
+      fetchQueue();
+      return;
+    }
+
+    // Deleta o registro de atendimento aberto (finalizou_em ainda nulo)
+    // evitando deixar uma sessão "fantasma" aberta na tabela atendimentos
+    const { error: deleteError } = await supabase
+      .from('atendimentos')
+      .delete()
+      .eq('agendamento_id', id)
+      .is('finalizou_em', null);
+
+    if (deleteError) {
+      // Loga o erro sem bloquear o usuário, pois o status já foi revertido
+      console.error('Erro ao remover registro de atendimento:', deleteError);
+    }
+
+    // Exibe toast de confirmação para o usuário saber que a ação foi executada
+    toast.success('Chamada revertida para Aguardando!');
+  };
+
   const getDotColor = (status: string, isClickable: boolean) => {
     // REGRA 1: Se estiver amarelo ('atendido'), SEMPRE mostra amarelo (somente leitura se não tiver permissão)
     if (status === 'atendido') {
@@ -415,23 +463,49 @@ const CallScreen: React.FC<CallScreenProps> = ({ onOpenAudiometria }) => {
 
                           return (
                             <td key={col.key} className="px-6 py-5 whitespace-nowrap text-center">
-                              <button
-                                onClick={() => {
-                                  if (isClickable) {
-                                    cycleStatus(apt.id, col.key, status, apt.colaboradores?.nome);
-                                    if (col.key === 'audiometria' && status === 'Aguardando') {
+                              {/* Agrupa a bolinha de status e o botão reverter em linha */}
+                              <div className="flex items-center justify-center gap-2">
 
-                                    if (userAccessLevel === 5) {
-                                      onOpenAudiometria?.(apt);
-                                    }
+                                {/* Bolinha de status — cicla o atendimento ao clicar */}
+                                <button
+                                  onClick={() => {
+                                    if (isClickable) {
+                                      cycleStatus(apt.id, col.key, status, apt.colaboradores?.nome);
+                                      if (col.key === 'audiometria' && status === 'Aguardando') {
 
+                                      if (userAccessLevel === 5) {
+                                        onOpenAudiometria?.(apt);
+                                      }
+
+                                      }
                                     }
-                                  }
-                                }}
-                                className={`w-8 h-8 rounded-full shadow-md transition-all duration-300 transform border-2 border-white ${getDotColor(status, isClickable)}`}
-                                title={tooltip}
-                                disabled={!isClickable || status === 'Finalizado'}
-                              />
+                                  }}
+                                  className={`w-8 h-8 rounded-full shadow-md transition-all duration-300 transform border-2 border-white ${getDotColor(status, isClickable)}`}
+                                  title={tooltip}
+                                  disabled={!isClickable || status === 'Finalizado'}
+                                />
+
+                                {/* Botão reverter: exibido somente quando o status é amarelo, o usuário tem permissão E a sala não é audiometria (nela o revert ocorre dentro da tela da anamnese) */}
+                                {status === 'atendido' && isClickable && col.key !== 'audiometria' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      // Solicita confirmação antes de reverter o status da sala
+                                      if (window.confirm('Deseja reverter a chamada? O paciente voltará para a fila de espera.')) {
+                                        revertStatus(apt.id, col.key);
+                                      }
+                                    }}
+                                    title="Reverter chamada para Aguardando"
+                                    className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-300 rounded-lg hover:bg-amber-100 active:scale-95 transition-all duration-150 shadow-sm"
+                                  >
+                                    {/* Ícone de seta de reverter */}
+                                    <Undo className="w-3 h-3" />
+                                    {/* Texto do botão */}
+                                    <span>Reverter</span>
+                                  </button>
+                                )}
+
+                              </div>
                             </td>
                           );
                         })}
@@ -484,21 +558,49 @@ const CallScreen: React.FC<CallScreenProps> = ({ onOpenAudiometria }) => {
 
                       return (
                         <div key={col.key} className="flex items-center justify-between bg-gray-50 rounded-xl p-3">
+                          {/* Nome da sala */}
                           <span className={`text-sm font-medium ${isClickable ? 'text-gray-600' : 'text-gray-300'}`}>{col.label}</span>
-                          <button
-                            onClick={() => {
-                              if (isClickable) {
-                                cycleStatus(apt.id, col.key, status, apt.colaboradores?.nome);
-                                if (col.key === 'audiometria' && status === 'Aguardando') {
-                                  onOpenAudiometria?.(apt);
+
+                          {/* Agrupa o botão reverter e a bolinha à direita do card */}
+                          <div className="flex items-center gap-2">
+
+                            {/* Botão reverter: exibido somente quando o status é amarelo, o usuário tem permissão E a sala não é audiometria (nela o revert ocorre dentro da tela da anamnese) */}
+                            {status === 'atendido' && isClickable && col.key !== 'audiometria' && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  // Solicita confirmação antes de reverter o status da sala
+                                  if (window.confirm('Deseja reverter a chamada? O paciente voltará para a fila de espera.')) {
+                                    revertStatus(apt.id, col.key);
+                                  }
+                                }}
+                                title="Reverter chamada para Aguardando"
+                                className="flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-300 rounded-lg hover:bg-amber-100 active:scale-95 transition-all duration-150 shadow-sm"
+                              >
+                                {/* Ícone de seta de reverter */}
+                                <Undo className="w-3 h-3" />
+                                {/* Texto do botão */}
+                                <span>Reverter</span>
+                              </button>
+                            )}
+
+                            {/* Bolinha de status — cicla o atendimento ao clicar */}
+                            <button
+                              onClick={() => {
+                                if (isClickable) {
+                                  cycleStatus(apt.id, col.key, status, apt.colaboradores?.nome);
+                                  if (col.key === 'audiometria' && status === 'Aguardando') {
+                                    onOpenAudiometria?.(apt);
+                                  }
                                 }
-                              }
-                            }}
-                            className={`w-10 h-10 rounded-full shadow-sm transition-all flex items-center justify-center border-2 border-white ${getDotColor(status, isClickable)}`}
-                            disabled={!isClickable || status === 'Finalizado'}
-                          >
-                            {status === 'atendido' && isClickable && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-20"></span>}
-                          </button>
+                              }}
+                              className={`w-10 h-10 rounded-full shadow-sm transition-all flex items-center justify-center border-2 border-white ${getDotColor(status, isClickable)}`}
+                              disabled={!isClickable || status === 'Finalizado'}
+                            >
+                              {status === 'atendido' && isClickable && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-20"></span>}
+                            </button>
+
+                          </div>
                         </div>
                       );
                     })}
