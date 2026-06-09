@@ -134,9 +134,57 @@ const App: React.FC = () => {
     setActiveTab("aso");
   };
 
+  // Abre a tela de audiometria para um agendamento específico
   const handleOpenAudiometria = (appointment: Agendamento) => {
     setAudiometriaAppointment(appointment);
     setActiveTab("audiometriamenu");
+  };
+
+  // Reverte a chamada de audiometria: volta o status para Aguardando e retorna à tela de chamada
+  const handleRevertAudiometria = async () => {
+    // Verifica se há um agendamento ativo para reverter
+    if (!audiometriaAppointment?.id) return;
+
+    // Monta o objeto de atualização: zera a posição na TV e volta ao status de espera
+    const updates = {
+      audiometria: 'Aguardando', // Retorna o status da sala de audiometria para a fila de espera
+      posicao_tela: null,        // Remove o paciente da posição exibida na TV de chamada
+      sala_chamada: null,        // Limpa o nome da sala associada ao chamado
+    };
+
+    // Atualiza o status no banco de dados do agendamento
+    const { error: updateError } = await supabase
+      .from('agendamentos')
+      .update(updates)
+      .eq('id', audiometriaAppointment.id);
+
+    if (updateError) {
+      // Loga o erro e exibe feedback visual de falha para o usuário
+      console.error('Erro ao reverter chamada de audiometria:', updateError);
+      toast.error('Erro ao reverter chamada. Tente novamente.');
+      return;
+    }
+
+    // Remove o registro de atendimento aberto (finalizou_em nulo) para não deixar sessão fantasma
+    const { error: deleteError } = await supabase
+      .from('atendimentos')
+      .delete()
+      .eq('agendamento_id', audiometriaAppointment.id)
+      .is('finalizou_em', null);
+
+    if (deleteError) {
+      // Loga o erro sem bloquear o usuário, pois o status já foi revertido com sucesso
+      console.error('Erro ao remover registro de atendimento:', deleteError);
+    }
+
+    // Limpa o agendamento ativo de audiometria no estado global
+    setAudiometriaAppointment(null);
+
+    // Redireciona o usuário de volta para a tela de chamada
+    setActiveTab('chamada');
+
+    // Exibe toast de confirmação da reversão
+    toast.success('Chamada revertida para Aguardando!');
   };
 
   const renderContent = () => {
@@ -184,7 +232,15 @@ const App: React.FC = () => {
           />
         );
       case "audiometriamenu":
-        return <AudiometriaMenu appointment={audiometriaAppointment} onClose={() => setActiveTab("chamada")} />;
+        return (
+          <AudiometriaMenu
+            appointment={audiometriaAppointment}
+            // Fecha o menu e volta para a tela de chamada ao concluir o exame
+            onClose={() => setActiveTab("chamada")}
+            // Callback para reverter a chamada de audiometria de dentro da tela de anamnese
+            onRevertCall={handleRevertAudiometria}
+          />
+        );
       default:
         return <Dashboard />;
     }

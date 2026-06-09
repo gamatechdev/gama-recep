@@ -1,7 +1,8 @@
 // Importa o React e hooks para construção do componente e gestão de estado
 import React, { useState } from "react";
 // Importa ícones da biblioteca lucide-react para uso visual
-import { ClipboardList, User, Activity, Save } from "lucide-react";
+// Importa os ícones ClipboardList, User, Activity, Save e Undo da biblioteca lucide-react para uso visual
+import { ClipboardList, User, Activity, Save, Undo } from "lucide-react";
 // Importa o tipo Agendamento usado na aplicação
 import { Agendamento } from "../../types";
 import { PatientData } from "./AudiometriaMenu";
@@ -18,6 +19,8 @@ interface AnamneseProps {
   setPatientData?: React.Dispatch<React.SetStateAction<PatientData>>;
   // Callback executado ao salvar as alterações com sucesso
   onSaveSuccess?: () => void;
+  // Callback opcional para reverter a chamada e retornar à tela anterior
+  onRevertCall?: () => void;
   // Estado e Setter da anamnese elevados
   answers: Record<string, string>;
   setAnswers: React.Dispatch<React.SetStateAction<Record<string, string>>>;
@@ -29,6 +32,8 @@ export function Anamnese({
   patientData,
   setPatientData,
   onSaveSuccess,
+  // Recebe o callback opcional para reverter chamada
+  onRevertCall,
   answers,
   setAnswers,
 }: AnamneseProps) {
@@ -38,13 +43,17 @@ export function Anamnese({
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
   };
 
-  // Estado para controlar o PopUp de validação
+  // Estado para controlar o PopUp de validação e confirmação
   const [popupConfig, setPopupConfig] = useState<{
     isOpen: boolean;
     title: string;
     message: string;
-    type: "error" | "success";
+    type: "error" | "success" | "warning";
     onConfirm?: () => void;
+    // Label personalizado do botão de confirmar
+    confirmLabel?: string;
+    // Label do botão de cancelar (quando definido, exibe o botão de cancelar)
+    cancelLabel?: string;
   }>({
     isOpen: false,
     title: "",
@@ -329,7 +338,39 @@ export function Anamnese({
               </div>
 
               {/* Cabeçalho superior na visualização de tela normal, posicionado com margem negativa para aproximar do topo */}
-              <div className="glass-panel p-6 rounded-ios shadow-float border border-ios-primary/20 flex items-center justify-center bg-white/80 -mt-4 lg:-mt-8">
+              <div className="glass-panel p-6 rounded-ios shadow-float border border-ios-primary/20 flex items-center justify-center bg-white/80 -mt-4 lg:-mt-8 relative">
+                {/* Botão no lado esquerdo do quadro do cabeçalho com símbolo undo e texto "Reverter chamada" - oculto na impressão */}
+                <button
+                  type="button"
+                  // Exibe popup de confirmação antes de executar a reversão da chamada
+                  onClick={() => {
+                    setPopupConfig({
+                      isOpen: true,
+                      title: "Reverter Chamada",
+                      message:
+                        "Tem certeza que deseja reverter esta chamada? O paciente voltará para a fila de espera e os dados não serão salvos.",
+                      type: "warning",
+                      // Label do botão de cancelar
+                      cancelLabel: "Cancelar",
+                      // Label do botão de confirmar
+                      confirmLabel: "Sim, reverter",
+                      // Ao confirmar: fecha o popup e executa o callback de reversão
+                      onConfirm: () => {
+                        setPopupConfig((prev) => ({ ...prev, isOpen: false }));
+                        onRevertCall?.();
+                      },
+                    });
+                  }}
+                  className="absolute left-4 lg:left-6 flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 rounded-ios border border-gray-300 text-xs font-semibold shadow-sm transition-all duration-200 active:scale-95 print:hidden"
+                >
+                  {/* Ícone Undo representando a reversão da ação */}
+                  <Undo className="w-3.5 h-3.5" />
+                  {/* Texto do botão de reverter chamada */}
+                  <span>Reverter
+                    <br></br>
+                    chamada</span>
+                </button>
+
                 {/* Ícone de prancheta representativo de formulário */}
                 <ClipboardList className="w-8 h-8 text-ios-primary mr-3" />
                 {/* Título em destaque na tela */}
@@ -1863,7 +1904,7 @@ export function Anamnese({
                 </button>
               </div>
 
-              {/* PopUp de validação em vez do alert do navegador */}
+              {/* PopUp de validação e confirmação em vez do alert do navegador */}
               <AudiomPopup
                 isOpen={popupConfig.isOpen}
                 title={popupConfig.title}
@@ -1871,6 +1912,9 @@ export function Anamnese({
                 type={popupConfig.type}
                 onClose={() => setPopupConfig((prev) => ({ ...prev, isOpen: false }))}
                 onConfirm={popupConfig.onConfirm}
+                // Repassa os labels personalizados dos botões quando definidos
+                confirmLabel={popupConfig.confirmLabel}
+                cancelLabel={popupConfig.cancelLabel}
               />
             </div>
           </td>
