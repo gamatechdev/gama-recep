@@ -25,6 +25,7 @@ const EXAMES_LIST = [
   { "idx": 11, "id": 458, "nome": "Glicemia em Jejum" },
   { "idx": 12, "id": 459, "nome": "EPF (parasitológico fezes)" },
   { "idx": 13, "id": 460, "nome": "EAS (urina)" },
+  { "idx": 14, "id": 461, "nome": "Grupo Sanguíneo + Fator RH" },
   { "idx": 15, "id": 462, "nome": "Gama GT" },
   { "idx": 16, "id": 463, "nome": "TGO / TGP" },
   { "idx": 17, "id": 464, "nome": "Ácido Trans. Muconico" },
@@ -1186,7 +1187,12 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   );
 
   const unitOptions = unidades.map(u => ({ id: u.id, label: u.nome_unidade }));
-  const filteredExams = EXAMES_LIST.filter(exame => (exame.nome || '').toLowerCase().includes((examSearchTerm || '').toLowerCase()));
+  const normalizeForSearch = (str: string) => 
+    (str || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  const filteredExams = EXAMES_LIST.filter(exame => 
+    normalizeForSearch(exame.nome).includes(normalizeForSearch(examSearchTerm))
+  );
 
   // Helper function to strip emojis, numbers, and accents
   const cleanText = (text: string) => {
