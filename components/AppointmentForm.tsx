@@ -851,8 +851,17 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       orientacoesCliente += "\n- Necessário jejum de 8 horas.";
     }
 
+    // Monta as observações caso existam para enviar no WhatsApp
+    let observacoesText = "";
+    if (savedContext.obsClinica) {
+      observacoesText += `*Observações Clínicas:*\n${savedContext.obsClinica}\n\n`;
+    }
+    if (savedContext.obsLaboratorial) {
+      observacoesText += `*Observações Laboratoriais:*\n${savedContext.obsLaboratorial}\n\n`;
+    }
+
     // Template da mensagem completa a ser enviada pelo WhatsApp
-    const messageBody = `*${currentUser.username}:*\n\n  Exame Ocupacional do(a) paciente *${savedContext.pacienteName}* está agendado para *${formattedDate}*, *ás 7:00*:\n_Atendimento por ordem de chegada!_\n\n*Exames Solicitados:*\n${examsListString}\n\n*Orientações dos exames ocupacionais:*\n${orientacoesCliente}\n\n_Endereço da Clínica Gama Center: Rua Barão de Pouso Alegre, 90, São Sebastião, Conselheiro Lafaiete (ao lado da Igreja São Sebastião)._`;
+    const messageBody = `*${currentUser.username}:*\n\n  Exame Ocupacional do(a) paciente *${savedContext.pacienteName}* está agendado para *${formattedDate}*, *ás 7:00*:\n_Atendimento por ordem de chegada!_\n\n*Exames Solicitados:*\n${examsListString}\n\n${observacoesText}*Orientações dos exames ocupacionais:*\n${orientacoesCliente}\n\n_Endereço da Clínica Gama Center: Rua Barão de Pouso Alegre, 90, São Sebastião, Conselheiro Lafaiete (ao lado da Igreja São Sebastião)._`;
 
     try {
       // Envia a mensagem para o número selecionado via Z-API
@@ -1155,8 +1164,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         data: appointmentData.data_atendimento,
         exames: selectedExams, // Enviando lista original (com Higidez) para o WhatsApp
         obsClinica: obsClinica,
-        obsLaboratorial: obsLaboratorial,
-        obsAgendamento: obsAgendamento
+        obsLaboratorial: obsLaboratorial
       });
 
       setShowNotifyModal(true);
