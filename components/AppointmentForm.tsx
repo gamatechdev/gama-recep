@@ -832,14 +832,14 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
     const examsListString = savedContext.exames.map((e: string) => `- ${e}`).join('\n');
 
     // Orientações base — sempre enviadas
-    let orientacoes = "- Levar RG e CPF!";
+    let orientacoesCliente = "- Levar RG e CPF!";
 
     // Adiciona orientação de repouso auditivo SOMENTE se houver audiometria
     const needsAudioRepose = savedContext.exames.some((e: string) =>
       e.toLowerCase().includes("audiometria")
     );
     if (needsAudioRepose) {
-      orientacoes += "\n- Fazer repouso auditivo de 12 horas.";
+      orientacoesCliente += "\n- Fazer repouso auditivo de 12 horas.";
     }
 
     // Adiciona orientação de jejum SOMENTE se houver exame de glicemia ou hemoglobina glicada
@@ -848,23 +848,11 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       return exam.includes("hemoglobina glicada") || exam.includes("glicemia");
     });
     if (needsFasting) {
-      orientacoes += "\n- Necessário jejum de 8 horas.";
+      orientacoesCliente += "\n- Necessário jejum de 8 horas.";
     }
 
     // Template da mensagem completa a ser enviada pelo WhatsApp
-    let messageBody = `*${currentUser.username}:*\n\nExame Ocupacional do(a) paciente *${savedContext.pacienteName}* está agendado para *${formattedDate}*, *ás 7:00*:\n_Atendimento por ordem de chegada!_\n\n*Exames Solicitados:*\n${examsListString}\n\n*Orientações dos exames ocupacionais:*\n${orientacoes}`;
-
-    if (savedContext.obsAgendamento) {
-      messageBody += `\n\n*Observações do Agendamento:*\n${savedContext.obsAgendamento}`;
-    }
-    if (savedContext.obsClinica) {
-      messageBody += `\n\n*Observações Clínicas:*\n${savedContext.obsClinica}`;
-    }
-    if (savedContext.obsLaboratorial) {
-      messageBody += `\n\n*Observações Laboratoriais:*\n${savedContext.obsLaboratorial}`;
-    }
-
-    messageBody += `\n\n_Endereço da Clínica Gama Center: Rua Barão de Pouso Alegre, 90, São Sebastião, Conselheiro Lafaiete (ao lado da Igreja São Sebastião)._`;
+    const messageBody = `*${currentUser.username}:*\n\n  Exame Ocupacional do(a) paciente *${savedContext.pacienteName}* está agendado para *${formattedDate}*, *ás 7:00*:\n_Atendimento por ordem de chegada!_\n\n*Exames Solicitados:*\n${examsListString}\n\n*Orientações dos exames ocupacionais:*\n${orientacoesCliente}\n\n_Endereço da Clínica Gama Center: Rua Barão de Pouso Alegre, 90, São Sebastião, Conselheiro Lafaiete (ao lado da Igreja São Sebastião)._`;
 
     try {
       // Envia a mensagem para o número selecionado via Z-API
