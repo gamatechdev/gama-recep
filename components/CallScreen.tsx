@@ -111,7 +111,7 @@ const CallScreen: React.FC<CallScreenProps> = ({ onOpenAudiometria }) => {
       .from('agendamentos')
       .select(`
         *,
-        colaboradores:colaboradores!agendamentos_colaborador_id_fkey (id, nome, cpf, data_nascimento, sexo, setor),
+        colaboradores:colaboradores!agendamentos_colaborador_id_fkey (id, nome, cpf, data_nascimento, sexo, cargos(nome), setor),
         unidades (nome_unidade)
       `)
       .eq('data_atendimento', today)
