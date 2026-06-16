@@ -725,8 +725,6 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   };
 
   const generatePDF = async (payload: any) => {
-    console.log("--- INICIANDO GERAÇÃO DE PDF ---");
-    console.log("Payload:", payload);
     toast.info("Iniciando geração de PDF na API local...");
     try {
       const response = await fetch("https://ficha-api.vercel.app/prontuarios", {
@@ -998,10 +996,6 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
         observacoesLaboratorial: obsLaboratorial,
         formularios: selectedFormularios
       };
-      // Log detalhado do payload enviado para a API de geração de PDF (JSON expandido)
-      console.log("\n========== PAYLOAD GERAÇÃO DE PDF ==========");
-      console.log(JSON.stringify(pdfPayloadDebug, null, 2));
-      console.log("=============================================\n");
 
       // Usa o payload já montado acima para garantir que o log corresponde ao envio real
       const generatedUrl = await generatePDF(pdfPayloadDebug);
@@ -1127,11 +1121,6 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           ...salasCalculadas,
         };
 
-        // Log detalhado do payload de atualização do agendamento (JSON expandido)
-        console.log("\n========== PAYLOAD ATUALIZAÇÃO AGENDAMENTO (SUPABASE) ==========");
-        console.log(JSON.stringify(updatePayload, null, 2));
-        console.log("================================================================\n");
-
         const { error } = await supabase.from('agendamentos').update(updatePayload).eq('id', initialAppointment.id);
         agendamentoError = error;
       } else {
@@ -1160,11 +1149,6 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
           // Salas calculadas automaticamente baseado nos exames selecionados
           ...salasCalculadas,
         };
-
-        // Log detalhado do payload de inserção do novo agendamento (JSON expandido)
-        console.log("\n========== PAYLOAD INSERÇÃO NOVO AGENDAMENTO (SUPABASE) ==========");
-        console.log(JSON.stringify(insertPayload, null, 2));
-        console.log("=================================================================\n");
 
         const { error } = await supabase.from('agendamentos').insert([insertPayload]);
         agendamentoError = error;

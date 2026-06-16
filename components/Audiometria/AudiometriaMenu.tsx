@@ -64,8 +64,8 @@ export function AudiometriaMenu({ appointment, onClose, onRevertCall }: Audiomet
     rg: "",
     // Inicializa o nome da empresa/unidade
     empresa: appointment?.unidades?.nome_unidade || "",
-    // Inicializa a função/setor do colaborador com o nome do cargo, ou converte o ID do cargo para string caso não tenha o nome
-    funcao: appointment?.colaboradores?.cargos?.nome || (appointment?.colaboradores?.cargo ? String(appointment?.colaboradores?.cargo) : ""),
+    // Inicializa a função/setor do colaborador com o nome do cargo, converte o ID do cargo para string, usa o cargo direto, ou usa a coluna setor (onde o texto da função é frequentemente salvo)
+    funcao: appointment?.colaboradores?.cargos?.nome || (appointment?.colaboradores?.cargo ? String(appointment?.colaboradores?.cargo) : "") || (appointment as any)?.cargo || appointment?.colaboradores?.setor || "",
     // Inicializa a descrição textual do sexo do colaborador
     sexo:
       appointment?.colaboradores?.sexo === "F"
@@ -170,8 +170,21 @@ export function AudiometriaMenu({ appointment, onClose, onRevertCall }: Audiomet
 
         // Restaura a aba ativa (anamnese ou audiometria)
         if (localDraft.activeTab) setActiveTab(localDraft.activeTab);
-        // Restaura os dados cadastrais do paciente
-        if (localDraft.patientData) setPatientData(localDraft.patientData);
+        // Restaura os dados cadastrais do paciente, dando prioridade aos dados atualizados do banco
+        if (localDraft.patientData) {
+          setPatientData(prev => ({
+            ...localDraft.patientData,
+            // Garante que o nome, documento, empresa, função, sexo e data de nascimento 
+            // sejam os mais recentes vindos do agendamento recém-buscado
+            nome: appointment?.colaboradores?.nome || localDraft.patientData.nome,
+            documento: appointment?.colaboradores?.cpf || localDraft.patientData.documento,
+            empresa: appointment?.unidades?.nome_unidade || localDraft.patientData.empresa,
+            funcao: appointment?.colaboradores?.cargos?.nome || (appointment?.colaboradores?.cargo ? String(appointment?.colaboradores?.cargo) : "") || (appointment as any)?.cargo || appointment?.colaboradores?.setor || localDraft.patientData.funcao,
+            sexo: appointment?.colaboradores?.sexo === "F" ? "Feminino" : appointment?.colaboradores?.sexo === "M" ? "Masculino" : localDraft.patientData.sexo,
+            dataNascimento: appointment?.colaboradores?.data_nascimento || localDraft.patientData.dataNascimento,
+            // O RG, repouso e dataExame permanecem os que estavam salvos no rascunho
+          }));
+        }
         // Restaura as respostas da anamnese
         if (localDraft.anamneseAnswers) setAnamneseAnswers(localDraft.anamneseAnswers);
         // Restaura o campo de meatoscopia OD
@@ -219,7 +232,20 @@ export function AudiometriaMenu({ appointment, onClose, onRevertCall }: Audiomet
         const doc = data.documento as any;
         // Restaura cada campo individualmente com verificação de existência
         if (doc.activeTab) setActiveTab(doc.activeTab);
-        if (doc.patientData) setPatientData(doc.patientData);
+        if (doc.patientData) {
+          setPatientData(prev => ({
+            ...doc.patientData,
+            // Garante que o nome, documento, empresa, função, sexo e data de nascimento 
+            // sejam os mais recentes vindos do agendamento recém-buscado
+            nome: appointment?.colaboradores?.nome || doc.patientData.nome,
+            documento: appointment?.colaboradores?.cpf || doc.patientData.documento,
+            empresa: appointment?.unidades?.nome_unidade || doc.patientData.empresa,
+            funcao: appointment?.colaboradores?.cargos?.nome || (appointment?.colaboradores?.cargo ? String(appointment?.colaboradores?.cargo) : "") || (appointment as any)?.cargo || appointment?.colaboradores?.setor || doc.patientData.funcao,
+            sexo: appointment?.colaboradores?.sexo === "F" ? "Feminino" : appointment?.colaboradores?.sexo === "M" ? "Masculino" : doc.patientData.sexo,
+            dataNascimento: appointment?.colaboradores?.data_nascimento || doc.patientData.dataNascimento,
+            // O RG, repouso e dataExame permanecem os que estavam salvos no rascunho
+          }));
+        }
         if (doc.anamneseAnswers) setAnamneseAnswers(doc.anamneseAnswers);
         if (doc.meatoscopiaOD !== undefined) setMeatoscopiaOD(doc.meatoscopiaOD);
         if (doc.meatoscopiaOE !== undefined) setMeatoscopiaOE(doc.meatoscopiaOE);
