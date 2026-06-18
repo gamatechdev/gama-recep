@@ -863,6 +863,13 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       orientacoesCliente += "\n- Necessário jejum de 8 horas.";
     }
 
+    const needsEcg = savedContext.exames.some((e: string) => 
+      e.toLowerCase().includes("eletrocardiograma")
+    );
+    if (needsEcg) {
+      orientacoesCliente += "\n- Comparecer com roupas sem metais(sutiãs,cintos e afins) e priorizar o uso de roupas com tecidos leves.";
+    }
+
     // Monta as observações caso existam para enviar no WhatsApp
     let observacoesText = "";
     if (savedContext.obsClinica) {
