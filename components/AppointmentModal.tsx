@@ -413,9 +413,6 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ onClose, cur
                 data: appointmentData.data_atendimento
             };
 
-            // Log detalhado do payload enviado para a API de geração de PDF
-            console.log("DEBUG: Payload enviado para Geração de PDF (Modal):", pdfPayload);
-
             const generatedUrl = await generatePDF(pdfPayload);
 
             const agendamentoPayload = {
@@ -428,9 +425,6 @@ export const AppointmentModal: React.FC<AppointmentModalProps> = ({ onClose, cur
                 exames_snapshot: selectedExams,
                 ficha_url: generatedUrl
             };
-
-            // Log detalhado do payload de inserção do agendamento
-            console.log("DEBUG: Payload de INSERÇÃO do Agendamento (Supabase - Modal):", agendamentoPayload);
 
             const { error: aptError } = await supabase
                 .from('agendamentos')

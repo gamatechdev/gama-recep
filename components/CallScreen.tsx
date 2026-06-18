@@ -111,7 +111,7 @@ const CallScreen: React.FC<CallScreenProps> = ({ onOpenAudiometria }) => {
       .from('agendamentos')
       .select(`
         *,
-        colaboradores:colaboradores!agendamentos_colaborador_id_fkey (id, nome, cpf, data_nascimento, sexo, setor),
+        colaboradores:colaboradores!agendamentos_colaborador_id_fkey (id, nome, cpf, data_nascimento, sexo, cargo, cargos(nome), setor),
         unidades (nome_unidade)
       `)
       .eq('data_atendimento', today)
@@ -277,6 +277,34 @@ const CallScreen: React.FC<CallScreenProps> = ({ onOpenAudiometria }) => {
     if (error) {
       console.error("Error updating room status", error);
       fetchQueue();
+    }
+  };
+
+  // Função para abrir a audiometria garantindo que os dados mais recentes do banco sejam repassados
+  const handleOpenAudiometria = async (aptLocal: Agendamento) => {
+    try {
+      // Busca os dados atualizados do agendamento e seus relacionamentos (colaborador, cargo, unidade)
+      const { data, error } = await supabase
+        .from('agendamentos')
+        .select(`
+          *,
+          colaboradores:colaboradores!agendamentos_colaborador_id_fkey (id, nome, cpf, data_nascimento, sexo, cargo, cargos(nome), setor),
+          unidades (nome_unidade)
+        `)
+        .eq('id', aptLocal.id)
+        .single();
+
+      if (!error && data) {
+        // Abre a tela de audiometria passando os dados recém-buscados
+        onOpenAudiometria?.(data as unknown as Agendamento);
+      } else {
+        console.error("Erro ao buscar dados atualizados para a audiometria:", error);
+        // Caso ocorra algum erro na busca, utiliza os dados já cacheados localmente
+        onOpenAudiometria?.(aptLocal);
+      }
+    } catch (err) {
+      // Tratamento de exceção de erro
+      onOpenAudiometria?.(aptLocal);
     }
   };
 
@@ -474,7 +502,8 @@ const CallScreen: React.FC<CallScreenProps> = ({ onOpenAudiometria }) => {
                                       if (col.key === 'audiometria' && status === 'Aguardando') {
 
                                       if (userAccessLevel === 5) {
-                                        onOpenAudiometria?.(apt);
+                                        // Chama a função que busca dados atualizados antes de abrir
+                                        handleOpenAudiometria(apt);
                                       }
 
                                       }
@@ -590,7 +619,8 @@ const CallScreen: React.FC<CallScreenProps> = ({ onOpenAudiometria }) => {
                                 if (isClickable) {
                                   cycleStatus(apt.id, col.key, status, apt.colaboradores?.nome);
                                   if (col.key === 'audiometria' && status === 'Aguardando') {
-                                    onOpenAudiometria?.(apt);
+                                    // Chama a função que busca dados atualizados antes de abrir
+                                    handleOpenAudiometria(apt);
                                   }
                                 }
                               }}

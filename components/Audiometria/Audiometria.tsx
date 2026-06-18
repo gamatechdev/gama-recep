@@ -281,18 +281,17 @@ export function Audiometria({
       return;
     }
 
+    toast.info("Processando imagens da audiometria, aguarde...");
     setIsGenerating(true);
 
     try {
-      console.log("[DEBUG] Capturando imagens da grade de audiometria...");
       let capturedGrids = { imageOD: '', imageOE: '' };
       
       if (gradeAudiometriaRef.current) {
+        toast.loading("Gerando documento PDF final...");
         capturedGrids = await gradeAudiometriaRef.current.exportImages();
       }
 
-      console.log("[DEBUG] Renderizando o Template PDF em memória com React-PDF...");
-      
       const doc = <AudiometriaPDFTemplate 
         patientData={patientData}
         anamneseAnswers={anamneseAnswers || {}}
@@ -313,18 +312,13 @@ export function Audiometria({
       // Chama a biblioteca para desenhar e empacotar como BLOB nativo
       const pdfBlob = await pdf(doc).toBlob();
 
-      // [NOVO] Mostra o PDF no modal gerado pelo React-PDF (removido a pedido do usuário)
-      // const pdfUrl = URL.createObjectURL(pdfBlob);
-      // setPdfPreviewUrl(pdfUrl);
+      toast.loading("Enviando laudo gerado para o servidor...");
 
-      console.log("[DEBUG] Iniciando upload para o Supabase...");
       // 2. Upload para o Supabase Storage (bucket: audiometria)
       const timestamp = new Date().getTime();
       const fileName = `${appointment.colaborador_id}_${timestamp}.pdf`;
 
       const arrayBuffer = await pdfBlob.arrayBuffer();
-
-      console.log("[DEBUG] Arquivo preparado. Tamanho:", (arrayBuffer.byteLength / 1024 / 1024).toFixed(2), "MB. Enviando API nativa...");
 
       // Pegamos o token do Supabase para fazer um fetch direto (mais confiável que o wrapper .upload() com arquivos grandes)
       const { data: sessionData } = await supabase.auth.getSession();
@@ -350,10 +344,10 @@ export function Audiometria({
 
       if (!response.ok) {
         const errJson = await response.json();
-        console.error("[DEBUG] Erro no upload:", errJson);
         throw new Error(errJson.message || "Falha ao fazer upload da audiometria.");
       }
-      console.log("[DEBUG] Upload concluído com sucesso!");
+
+      toast.success("Documento salvo e armazenado com sucesso!");
 
       // Pegar a URL pública do PDF salvo
       const { data: publicUrlData } = supabase.storage
@@ -412,8 +406,6 @@ export function Audiometria({
         .update({ audiometria: 'Finalizado' })
         .eq('id', appointment.id);
 
-      // Loga no console do navegador para depuração
-      console.log("Audiometria salva com sucesso!", data);
       // Apresenta notificação de sucesso na interface visual do usuário
       toast.success("Audiometria salva com sucesso!");
       
