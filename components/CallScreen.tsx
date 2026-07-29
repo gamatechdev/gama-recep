@@ -25,6 +25,7 @@ const CallScreen: React.FC<CallScreenProps> = ({ onOpenAudiometria }) => {
   const [userAccessLevel, setUserAccessLevel] = useState<number | null>(null);
   const [currentDbUserId, setCurrentDbUserId] = useState<number | null>(null);
   const [currentUsername, setCurrentUsername] = useState<string>('');
+  const [currentAuthUserId, setCurrentAuthUserId] = useState<string | null>(null);
 
   // Timer State
   const [activeCallData, setActiveCallData] = useState<{ startTime: Date; patientName: string } | null>(null);
@@ -65,6 +66,7 @@ const CallScreen: React.FC<CallScreenProps> = ({ onOpenAudiometria }) => {
   const fetchUserAccess = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
+      setCurrentAuthUserId(user.id);
       const { data } = await supabase
         .from('users')
         .select('id, acesso_med, username')
@@ -403,6 +405,11 @@ const CallScreen: React.FC<CallScreenProps> = ({ onOpenAudiometria }) => {
           <p className="text-ios-subtext font-medium mt-1 uppercase text-xs tracking-wider">
             Fluxo de Atendimento (Ordem de Chegada)
           </p>
+          {currentAuthUserId === 'd59ae374-fd88-46e1-ad9c-0cbf73470f42' && appointments.length > 0 && (
+            <p className="text-ios-primary font-bold mt-2">
+              Agendamentos restantes: {appointments.length - 1}
+            </p>
+          )}
         </div>
       </div>
 
@@ -433,7 +440,7 @@ const CallScreen: React.FC<CallScreenProps> = ({ onOpenAudiometria }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {appointments.map((apt) => {
+                  {(currentAuthUserId === 'd59ae374-fd88-46e1-ad9c-0cbf73470f42' ? appointments.slice(0, 1) : appointments).map((apt) => {
                     // Verifica se o paciente está "Ocupado" em alguma sala (status = 'atendido')
                     const activeRoomKey = ROOM_COLUMNS.find(r => apt[r.key as keyof Agendamento] === 'atendido')?.key;
 
@@ -548,7 +555,7 @@ const CallScreen: React.FC<CallScreenProps> = ({ onOpenAudiometria }) => {
 
           {/* --- Mobile Card View (Visible only on Mobile) --- */}
           <div className="md:hidden space-y-4">
-            {appointments.map((apt) => {
+            {(currentAuthUserId === 'd59ae374-fd88-46e1-ad9c-0cbf73470f42' ? appointments.slice(0, 1) : appointments).map((apt) => {
               const activeRoomKey = ROOM_COLUMNS.find(r => apt[r.key as keyof Agendamento] === 'atendido')?.key;
 
               return (
