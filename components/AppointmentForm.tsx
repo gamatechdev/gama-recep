@@ -849,7 +849,7 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
       orientacoesCliente += "\n- Necessário jejum de 8 horas.";
     }
 
-    const needsEcg = savedContext.exames.some((e: string) => 
+    const needsEcg = savedContext.exames.some((e: string) =>
       e.toLowerCase().includes("eletrocardiograma")
     );
     if (needsEcg) {
@@ -1174,10 +1174,10 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   );
 
   const unitOptions = unidades.map(u => ({ id: u.id, label: u.nome_unidade }));
-  const normalizeForSearch = (str: string) => 
+  const normalizeForSearch = (str: string) =>
     (str || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-  const filteredExams = EXAMES_LIST.filter(exame => 
+  const filteredExams = EXAMES_LIST.filter(exame =>
     normalizeForSearch(exame.nome).includes(normalizeForSearch(examSearchTerm))
   );
 
@@ -1192,12 +1192,12 @@ const AppointmentForm: React.FC<AppointmentFormProps> = ({ initialAppointment, o
   // Filtro local dinâmico com normalização para ignorar acentos e case
   const filteredContacts = contactsList.filter(contact => {
     if (!contactSearchTerm.trim()) return true;
-    
+
     const normalizedSearch = contactSearchTerm.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
     const normalizedName = (contact.chatname || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     const phoneStr = (contact.phone || "").replace(/\D/g, "");
     const searchDigits = contactSearchTerm.replace(/\D/g, "");
-    
+
     return normalizedName.includes(normalizedSearch) || (searchDigits && phoneStr.includes(searchDigits));
   });
 
